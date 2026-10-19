@@ -1,0 +1,1 @@
+examples/truck_0001.png
