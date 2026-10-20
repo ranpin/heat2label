@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>heat2label — heat map → pseudo bounding-box labels</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231e3a8a'/%3E%3Crect x='6' y='6' width='9' height='9' rx='1' fill='white' opacity='0.92'/%3E%3Crect x='17' y='17' width='9' height='9' rx='1' fill='white' opacity='0.5'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#fff; --ink:#1a1a1a; --muted:#6b7280; --border:#e5e7eb;
+  --accent:#1e3a8a; --accent-light:#eff3fb; --code-bg:#f7f8fa; --stage-bg:#fafafa;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+header{text-align:center;padding:56px 0 4px}
+h1{font-size:34px;font-weight:700;letter-spacing:-0.02em;margin:0}
+.tagline{color:var(--muted);font-size:16px;margin:10px 0 0}
+.note{display:inline-block;margin-top:16px;font-size:12.5px;color:var(--muted);background:var(--code-bg);border:1px solid var(--border);border-radius:999px;padding:5px 14px}
+.tabs{display:flex;justify-content:center;gap:6px;border-bottom:1px solid var(--border);margin-top:34px}
+.tab{padding:12px 20px;font-size:15px;font-weight:600;color:var(--muted);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:color .18s,border-color .18s;font-family:inherit}
+.tab:hover{color:var(--ink)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.arm-desc{max-width:780px;margin:26px auto 0;text-align:center;color:var(--muted);font-size:14.5px}
+.samples{display:flex;justify-content:center;gap:10px;margin-top:22px;flex-wrap:wrap}
+.pill{padding:7px 18px;font-size:14px;border:1px solid var(--border);border-radius:999px;background:#fff;color:var(--ink);cursor:pointer;transition:background .18s,color .18s,border-color .18s;font-family:inherit}
+.pill:hover{border-color:var(--accent);color:var(--accent)}
+.pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.prompt-note{text-align:center;color:var(--muted);font-size:13px;margin-top:14px;font-family:ui-monospace,Menlo,Consolas,monospace;min-height:20px}
+.pipeline{display:flex;justify-content:center;align-items:flex-start;gap:4px;margin-top:24px;flex-wrap:wrap}
+.stage{text-align:center}
+.stage img{width:232px;height:152px;object-fit:contain;background:var(--stage-bg);border:1px solid var(--border);border-radius:8px;display:block;transition:border-color .18s}
+.stage:hover img{border-color:var(--accent)}
+.stage .cap{font-size:12.5px;color:var(--muted);margin-top:8px}
+.arrow{color:#c3c8cf;font-size:22px;margin-top:62px;padding:0 4px;user-select:none}
+.label-json{max-width:780px;margin:26px auto 0;background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 18px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:var(--ink);overflow-x:auto;text-align:left;white-space:pre-wrap;word-break:break-word}
+.label-json .k{color:var(--accent);font-weight:600}
+footer{text-align:center;color:var(--muted);font-size:13px;padding:46px 0 42px}
+footer a{color:var(--accent);text-decoration:none}
+footer a:hover{text-decoration:underline}
+@media(max-width:680px){
+  .stage img{width:min(86vw,300px);height:auto;aspect-ratio:232/152}
+  .arrow{display:none}
+  .pipeline{gap:16px}
+  h1{font-size:28px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>heat2label</h1>
+    <p class="tagline">Turn a model's internal heat map into pseudo bounding-box labels — two independent arms.</p>
+    <span class="note">Precomputed walkthrough · both models are too heavy to run in-browser · reproduce from the repo</span>
+  </header>
+
+  <nav class="tabs" id="tabs"></nav>
+
+  <main>
+    <p class="arm-desc" id="desc"></p>
+    <div class="samples" id="samples"></div>
+    <p class="prompt-note" id="prompt"></p>
+    <div class="pipeline" id="pipeline"></div>
+    <pre class="label-json" id="labelJson"></pre>
+  </main>
+
+  <footer>
+    Source, models &amp; reproduction → <a href="https://github.com/ranpin/heat2label">github.com/ranpin/heat2label</a>
+  </footer>
+</div>
+
+<script>
+const DATA={
+  daam:{
+    label:"DAAM · SD cross-attention",
+    desc:"Stable Diffusion v1.4 img2img augments a driving-scene init image across seeds, then per-word cross-attention heat maps (DAAM) are thresholded via BFS island extraction into pseudo bounding boxes for long-tail classes. Heat-map source: SD cross-attention. Boxes: axis-aligned, emitted as a COCO-style label.json.",
+    stages:[
+      {key:"input",cap:"input"},
+      {key:"img",cap:"img2img output"},
+      {key:"heat",cap:"DAAM heat map"},
+      {key:"box",cap:"pseudo boxes"}
+    ],
+    samples:[
+      {id:"motorcyclist",name:"motorcyclist",prompt:"motorcyclist on road",keyword:"motorcyclist",
+       label:{"motorcyclist":[[30,5,772,93],[870,618,1080,779],[1087,707,1127,742],[954,709,993,740],[953,743,992,874],[1094,753,1155,808],[1176,779,1228,842]]}},
+      {id:"truck",name:"truck",prompt:"truck on road",keyword:"truck",
+       label:{"truck":[[35,30,664,78],[580,609,1016,934]]}}
+    ]
+  },
+  gradcam:{
+    label:"Grad-CAM++",
+    desc:"Grad-CAM++ on an ImageNet-pretrained ResNet-101 yields a class-activation heat map, which is thresholded and fit with a rotated bounding box (cv2.minAreaRect). Heat-map source: classification CAM. Boxes: rotated.",
+    stages:[
+      {key:"input",cap:"input (224×224)"},
+      {key:"heat",cap:"Grad-CAM++ heat map"},
+      {key:"box",cap:"rotated box"}
+    ],
+    samples:[
+      {id:"cat",name:"cat"},
+      {id:"bear",name:"bear"},
+      {id:"airplane",name:"airplane"},
+      {id:"train",name:"train"}
+    ]
+  }
+};
+let arm="daam";
+const sel={daam:"motorcyclist",gradcam:"cat"};
+const $=id=>document.getElementById(id);
+const imgPath=(a,s,k)=>`assets/${a}/${s}/${k}.png`;
+
+function render(){
+  // tabs
+  const tabs=$("tabs");tabs.innerHTML="";
+  for(const a of ["daam","gradcam"]){
+    const b=document.createElement("button");
+    b.className="tab"+(a===arm?" active":"");
+    b.textContent=DATA[a].label;
+    b.onclick=()=>{arm=a;render();};
+    tabs.appendChild(b);
+  }
+  const D=DATA[arm],s=sel[arm];
+  $("desc").textContent=D.desc;
+  // sample pills
+  const sp=$("samples");sp.innerHTML="";
+  for(const sm of D.samples){
+    const b=document.createElement("button");
+    b.className="pill"+(sm.id===s?" active":"");
+    b.textContent=sm.name;
+    b.onclick=()=>{sel[arm]=sm.id;render();};
+    sp.appendChild(b);
+  }
+  const sm=D.samples.find(x=>x.id===s);
+  $("prompt").textContent=sm.prompt?`prompt: "${sm.prompt}"   ·   keyword: "${sm.keyword}"`:"";
+  // pipeline
+  const pl=$("pipeline");pl.innerHTML="";
+  D.stages.forEach((st,i)=>{
+    if(i>0){const ar=document.createElement("div");ar.className="arrow";ar.textContent="→";pl.appendChild(ar);}
+    const d=document.createElement("div");d.className="stage";
+    const im=document.createElement("img");im.src=imgPath(arm,s,st.key);im.alt=st.cap;im.loading="lazy";
+    const c=document.createElement("div");c.className="cap";c.textContent=st.cap;
+    d.appendChild(im);d.appendChild(c);pl.appendChild(d);
+  });
+  // label.json (DAAM only)
+  const lj=$("labelJson");
+  if(sm.label){lj.style.display="block";lj.innerHTML='<span class="k">label.json</span>\n'+JSON.stringify(sm.label,null,2);}
+  else{lj.style.display="none";}
+}
+render();
+</script>
+</body>
+</html>

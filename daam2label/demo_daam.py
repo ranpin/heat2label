@@ -95,7 +95,13 @@ def text2img(prompt, keyword, seed, model_id, device):
 
 def img2img(args):
     """Main labeling loop. See module docstring."""
-    pipe = StableDiffusionImg2ImgPipeline.from_pretrained(args.model_id).to(args.device)
+    # fp16 weights + attention slicing: fit SD v1.4 on an 8 GB GPU (see README).
+    load_dtype = torch.float16 if args.device != "cpu" else torch.float32
+    pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
+        args.model_id, torch_dtype=load_dtype
+    ).to(args.device)
+    if args.device != "cpu":
+        pipe.enable_attention_slicing()
     image_paths = _load_image_list(args.image_list)
 
     for img_path in image_paths:
@@ -138,7 +144,7 @@ def img2img(args):
                 with trace(pipe) as tc:
                     out = pipe(
                         prompt=args.prompt,
-                        image=pil_init,
+                        init_image=pil_init,
                         strength=args.strength,
                         guidance_scale=7.5,
                         generator=gen,

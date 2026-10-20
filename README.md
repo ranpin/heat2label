@@ -1,5 +1,9 @@
 # heat2label
 
+**🔗 Live demo — https://ranpin.github.io/heat2label/** · pick the DAAM or
+Grad-CAM arm and walk the full heat-map → pseudo-box pipeline (precomputed;
+both models are too heavy to run in-browser).
+
 Two experiments on the same idea: **turn a model's internal heat map into
 pseudo bounding-box labels**, so images can be (pre-)annotated without
 hand-drawing every box. Both arms threshold an activation map, extract

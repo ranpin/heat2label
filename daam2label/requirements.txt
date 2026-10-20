@@ -1,12 +1,14 @@
 # Runtime for the vendored daam fork (based on castorini/daam v0.0.12).
-# Pinned to the diffusers API surface this fork's monkey-patches target:
-#   - CrossAttention._attention / _sliced_attention still present
-#   - StableDiffusionPipeline._encode_prompt still present
-#   - img2img argument renamed from `init_image` to `image` (>= 0.19)
-torch>=1.13,<2.3
-diffusers>=0.19,<0.25
-transformers>=4.25,<4.40
-accelerate>=0.20
+# The fork monkey-patches the OLD pre-0.15 diffusers attention API
+# (CrossAttention._attention / _sliced_attention, StableDiffusionPipeline._encode_prompt),
+# all removed by the diffusers 0.15 AttnProcessor refactor — so diffusers is pinned to
+# 0.9.0, the version castorini/daam v0.0.12 targeted. demo_daam.py accordingly calls
+# img2img with `init_image=` (the 0.9.0 signature). Requires Python <= 3.11 because
+# diffusers 0.9.0 imports distutils, which Python 3.12 removed.
+torch>=1.13
+diffusers==0.9.0
+transformers==4.24.0
+accelerate
 safetensors
 Pillow
 numpy<2
@@ -14,5 +16,4 @@ opencv-python
 matplotlib
 spacy>=3.5
 
-# Optional but strongly recommended to fit SD v1.4 on <=8 GB VRAM:
-xformers ; sys_platform == "linux"
+# 8 GB VRAM: demo_daam.py loads SD v1.4 in fp16 and calls enable_attention_slicing().
