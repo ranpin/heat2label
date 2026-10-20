@@ -1,5 +1,8 @@
 # cam2label
 
+> [`heat2label`](../) 的 **Grad-CAM 臂**——合并仓库里两条「热力图→伪框标注」实验之一。
+> 下面所有命令都在 `cam2label/gradcam/` 目录里运行。
+
 用 Grad-CAM++ 热力图自动给图像生成**旋转包围框（bounding box）标注**的一组实验脚本。核心思路：在 ImageNet 预训练的 ResNet101 上跑 Grad-CAM++，把得到的类激活热力图二值化后取轮廓，再用最小外接旋转矩形（`cv2.minAreaRect`）画回原图，从而把「CAM」转成「框标注」——即 cam → label。
 
 仓库里同时存放了一批文本生成图像（从代码注释看来自 dalle-mini / wandb 实验）及其生成结果，脚本被用来给这些生成图批量产框。
@@ -33,30 +36,27 @@ gradcam/
 
 ## 环境依赖
 
-仓库**没有** `requirements.txt` 等依赖清单，依赖需从 import 推断：
-
-- `torch`、`torchvision`（用到 `resnet101`、`fasterrcnn_resnet50_fpn` 预训练权重，首次运行会自动下载）
-- [`grad-cam`](https://github.com/jacobgil/pytorch-grad-cam)（`pip install grad-cam`，提供 `pytorch_grad_cam`）
-- `opencv-python`、`matplotlib`、`numpy`、`requests`、`Pillow`
-
-参考安装：
+见 [`gradcam/requirements.txt`](gradcam/requirements.txt)（2026 合并时补上）。CPU 即可运行，无需 CUDA：
 
 ```bash
-pip install torch torchvision grad-cam opencv-python matplotlib numpy requests pillow
+cd gradcam
+pip install -r requirements.txt
 ```
 
 ## 运行
 
-脚本里的路径都是相对路径，**必须先 `cd gradcam/` 再运行**：
+路径均为相对路径，**先 `cd gradcam/` 再运行**。输入/输出目录用命令行参数指定（有默认值）：
 
 ```bash
 cd gradcam
-python cam.py      # 处理 imgs65_15/，结果写到 results65_15/
-python test.py     # 递归处理 outputs/，结果写到各类目录下的 results/
+python cam.py                                        # 默认 imgs65_15 -> results65_15
+python cam.py --input-dir imgs48_17 --output-dir results48_17
+python test.py                                       # 默认递归处理 outputs/
+python fastRCNN.py --image testImgs/both.png         # 默认读当前目录 both.png
 ```
 
-- 要换数据集（`imgs48_17` ↔ `imgs65_15`），需要**改源码**：`cam.py` 里切换 `path_list` / `pathA` 两行，并同步改 `myimshows`、`drawBounding` 里写死的输出目录。
-- `fastRCNN.py` 需要当前目录下存在 `both.png`（仓库里在 `testImgs/both.png`）。
+- 换数据集（`imgs48_17` ↔ `imgs65_15`）用 `--input-dir` / `--output-dir` 即可，无需改源码。
+- `fastRCNN.py` 用 `--image` 指定输入图（仓库里在 `testImgs/both.png`）。
 
 ## 实现要点
 
@@ -65,7 +65,8 @@ python test.py     # 递归处理 outputs/，结果写到各类目录下的 resu
 
 ## 已知限制
 
-- 输出路径用了 Windows 反斜杠（如 `results65_15\\`），脚本按 Windows 环境编写；在 macOS/Linux 上直接跑会写出带 `\` 的异常文件名，需要先改成 `os.path.join`。
-- `cam.py` / `test.py` 在循环里每张图都重新加载一次 ResNet101，效率较低。
 - `drawBounding` 只取第一个轮廓（`contours[0]`），默认每张图只有一个目标。
-- 脚本没有命令行参数，数据集、输入/输出目录均硬编码。
+- `test.py` 用 `os.walk` 递归处理输入目录下的**所有**图片——重跑会把上次写出的 `results/` 结果也再处理一遍（在已画框的图上再画框）。
+
+> 2026 合并进 heat2label 时做过一轮修正：Windows 反斜杠路径改 `os.path.join`、加 argparse CLI、
+> ResNet101 只加载一次、依赖改用现代 torchvision `weights=` 与 grad-cam 自动设备检测。

@@ -1,0 +1,13 @@
+# Runtime for the Grad-CAM++ arm (cam2label/gradcam).
+# CPU is enough — these scripts do not require CUDA.
+#
+# Targets the modern API surface:
+#   - torchvision `weights=` (the old `pretrained=` kwarg was removed in torchvision 0.18)
+#   - grad-cam device auto-detection (the old `use_cuda=` argument is not used)
+torch>=1.13
+torchvision>=0.14
+grad-cam
+opencv-python
+matplotlib
+numpy
+Pillow
