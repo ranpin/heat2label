@@ -136,7 +136,7 @@ function render(){
   D.stages.forEach((st,i)=>{
     if(i>0){const ar=document.createElement("div");ar.className="arrow";ar.textContent="→";pl.appendChild(ar);}
     const d=document.createElement("div");d.className="stage";
-    const im=document.createElement("img");im.src=imgPath(arm,s,st.key);im.alt=st.cap;im.loading="lazy";
+    const im=document.createElement("img");im.src=imgPath(arm,s,st.key);im.alt=st.cap;
     const c=document.createElement("div");c.className="cap";c.textContent=st.cap;
     d.appendChild(im);d.appendChild(c);pl.appendChild(d);
   });
