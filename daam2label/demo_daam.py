@@ -19,6 +19,7 @@ import argparse
 import json
 import os
 import random
+import time
 from copy import deepcopy
 
 import cv2
@@ -85,15 +86,30 @@ def _load_image_list(list_file):
 def text2img(args):
     """Text2img labeling: SD generates a driving scene straight from the prompt
     (no init image), then the per-word DAAM heat map is thresholded via BFS into
-    pseudo bounding boxes. Saves img.png / heat.png / box.png / label.json per
-    seed — the text-to-image counterpart of ``img2img``.
+    pseudo bounding boxes. Saves img.png / heat.png / box.png / label.json /
+    timing.json per seed — the text-to-image counterpart of ``img2img``.
+
+    timing.json records per-stage wall clock, measured with
+    ``torch.cuda.synchronize`` so async GPU work lands in the right stage:
+    ``gen_s`` = 30-step diffusion under DAAM attention tracing, ``heat_s`` =
+    global + per-word heat map, ``box_s`` = plot_overlay (threshold + BFS
+    islands + overlay render). File I/O and model loading are excluded from
+    the per-image total.
     """
+    def sync():
+        if args.device != "cpu":
+            torch.cuda.synchronize()
+
     load_dtype = torch.float16 if args.device != "cpu" else torch.float32
+    t = time.perf_counter()
     pipe = StableDiffusionPipeline.from_pretrained(
         args.model_id, torch_dtype=load_dtype
     ).to(args.device)
     if args.device != "cpu":
         pipe.enable_attention_slicing()
+    sync()
+    load_s = time.perf_counter() - t
+    print(f"[text2img] model load: {load_s:.1f}s (one-time)")
 
     seeds = [args.seed] if args.num_outputs <= 1 else random.sample(range(10000), args.num_outputs)
     for seed in seeds:
@@ -104,6 +120,8 @@ def text2img(args):
             dtype=torch.float16, enabled=(args.device != "cpu")
         ), torch.no_grad():
             with trace(pipe) as tc:
+                sync()
+                t = time.perf_counter()
                 out = pipe(
                     args.prompt,
                     num_inference_steps=30,
@@ -111,10 +129,21 @@ def text2img(args):
                     height=args.side,
                     width=args.side,
                 )
+                sync()
+                gen_s = time.perf_counter() - t
+
+                t = time.perf_counter()
                 hm = tc.compute_global_heat_map().compute_word_heat_map(args.keyword)
+                sync()
+                heat_s = time.perf_counter() - t
+
+                t = time.perf_counter()
                 out_img, out_heat, out_bbox = hm.plot_overlay(
                     out.images[0], src_size=out.images[0].size
                 )
+                sync()
+                box_s = time.perf_counter() - t
+
                 out_heat_vis = cv2.applyColorMap(
                     np.uint8(255 * out_heat), cv2.COLORMAP_JET
                 )
@@ -129,7 +158,23 @@ def text2img(args):
                 cv2.imwrite(os.path.join(save_path, "box.png"), show)
                 with open(os.path.join(save_path, "label.json"), "w") as f:
                     json.dump({args.keyword: valid}, f)
-        print(f"[text2img] {args.keyword} seed={seed} -> {save_path} ({len(valid)} boxes)")
+        timing = {
+            "gen_s": round(gen_s, 2),
+            "heat_s": round(heat_s, 2),
+            "box_s": round(box_s, 2),
+            "total_s": round(gen_s + heat_s + box_s, 2),
+            "model_load_s": round(load_s, 1),
+            "device": args.device,
+            "model_id": args.model_id,
+            "side": args.side,
+            "steps": 30,
+        }
+        with open(os.path.join(save_path, "timing.json"), "w") as f:
+            json.dump(timing, f)
+        print(
+            f"[text2img] {args.keyword} seed={seed} -> {save_path} ({len(valid)} boxes) "
+            f"gen={gen_s:.2f}s heat={heat_s:.2f}s box={box_s:.2f}s total={timing['total_s']:.2f}s"
+        )
 
 
 def img2img(args):

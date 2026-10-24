@@ -84,12 +84,13 @@ Each seed produces a directory containing:
 | `label.json` | `{"<keyword>": [[x1, y1, x2, y2], ...]}`                           |
 
 Or skip the init image entirely: `text2img` generates a driving scene straight
-from the prompt and labels it (same `img/heat/box/label.json` outputs). This is
-the mode the [live demo](https://ranpin.github.io/heat2label/) showcases:
+from the prompt and labels it (same `img/heat/box/label.json` outputs, plus
+`timing.json` with per-stage wall clock). This is the mode the
+[live demo](https://ranpin.github.io/heat2label/) showcases:
 
 ```bash
 python demo_daam.py text2img \
-    --prompt "a motorcyclist riding on a city road, dashcam view" \
+    --prompt "a motorcyclist on the road" \
     --keyword motorcyclist
 ```
 
