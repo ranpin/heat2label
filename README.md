@@ -18,7 +18,7 @@ Each arm is self-contained — `cd` into it, install its own
 | | [`daam2label/`](daam2label/) | [`cam2label/`](cam2label/) |
 |---|---|---|
 | Heat-map source | Stable-Diffusion **cross-attention** (DAAM), text-prompt driven | **Grad-CAM++** on an ImageNet ResNet-101, prediction driven |
-| Generates images? | Yes — SD v1.4 img2img augmentation, then labels the outputs | No — labels images that already exist |
+| Generates images? | Yes — SD v1.4 text2img generation, then labels the outputs | No — labels images that already exist |
 | Domain | Driving-scene long-tail classes (`motorcyclist`, `truck`) | COCO zero-shot splits (65/15, 48/17) |
 | Box type | Axis-aligned bbox → `label.json` (COCO-flavoured) | Rotated box (`cv2.minAreaRect`) drawn on the image |
 | Compute | CUDA GPU ≥ 8 GB recommended | CPU is fine |

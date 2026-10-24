@@ -82,15 +82,54 @@ def _load_image_list(list_file):
         return [ln.strip() for ln in f if ln.strip() and not ln.startswith("#")]
 
 
-def text2img(prompt, keyword, seed, model_id, device):
-    """Sanity-check entry: pure txt2img + heat-map overlay (no labeling)."""
-    pipe = StableDiffusionPipeline.from_pretrained(model_id).to(device)
-    gen = set_seed(seed)
-    with torch.cuda.amp.autocast(dtype=torch.float16, enabled=(device != "cpu")), torch.no_grad():
-        with trace(pipe) as tc:
-            out = pipe(prompt, num_inference_steps=30, generator=gen)
-            hm = tc.compute_global_heat_map().compute_word_heat_map(keyword)
-            hm.plot_overlay(out.images[0], src_size=out.images[0].size)
+def text2img(args):
+    """Text2img labeling: SD generates a driving scene straight from the prompt
+    (no init image), then the per-word DAAM heat map is thresholded via BFS into
+    pseudo bounding boxes. Saves img.png / heat.png / box.png / label.json per
+    seed — the text-to-image counterpart of ``img2img``.
+    """
+    load_dtype = torch.float16 if args.device != "cpu" else torch.float32
+    pipe = StableDiffusionPipeline.from_pretrained(
+        args.model_id, torch_dtype=load_dtype
+    ).to(args.device)
+    if args.device != "cpu":
+        pipe.enable_attention_slicing()
+
+    seeds = [args.seed] if args.num_outputs <= 1 else random.sample(range(10000), args.num_outputs)
+    for seed in seeds:
+        save_path = os.path.join(args.save_dir, args.keyword, str(seed))
+        os.makedirs(save_path, exist_ok=True)
+        gen = set_seed(seed)
+        with torch.cuda.amp.autocast(
+            dtype=torch.float16, enabled=(args.device != "cpu")
+        ), torch.no_grad():
+            with trace(pipe) as tc:
+                out = pipe(
+                    args.prompt,
+                    num_inference_steps=30,
+                    generator=gen,
+                    height=args.side,
+                    width=args.side,
+                )
+                hm = tc.compute_global_heat_map().compute_word_heat_map(args.keyword)
+                out_img, out_heat, out_bbox = hm.plot_overlay(
+                    out.images[0], src_size=out.images[0].size
+                )
+                out_heat_vis = cv2.applyColorMap(
+                    np.uint8(255 * out_heat), cv2.COLORMAP_JET
+                )
+                show = deepcopy(out_img)
+                valid = []
+                for bbox in out_bbox:
+                    bbox = [int(b) for b in bbox]
+                    valid.append(bbox)
+                    cv2.rectangle(show, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 255), 4)
+                cv2.imwrite(os.path.join(save_path, "img.png"), out_img)
+                cv2.imwrite(os.path.join(save_path, "heat.png"), out_heat_vis)
+                cv2.imwrite(os.path.join(save_path, "box.png"), show)
+                with open(os.path.join(save_path, "label.json"), "w") as f:
+                    json.dump({args.keyword: valid}, f)
+        print(f"[text2img] {args.keyword} seed={seed} -> {save_path} ({len(valid)} boxes)")
 
 
 def img2img(args):
@@ -193,14 +232,17 @@ def build_parser():
     a.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     a.set_defaults(func=img2img)
 
-    # ---- text2img sanity check ----
-    b = sub.add_parser("text2img", help="Pure txt2img + heat-map overlay (no labeling).")
-    b.add_argument("--prompt", required=True)
-    b.add_argument("--keyword", required=True)
+    # ---- text2img labeling (generate scene + pseudo bbox) ----
+    b = sub.add_parser("text2img", help="Generate driving scene from prompt + pseudo bbox labels (no init image).")
+    b.add_argument("--prompt", required=True, help='SD prompt, e.g. "a motorcyclist riding on a road, dashcam view".')
+    b.add_argument("--keyword", required=True, help='Token whose heat map becomes bboxes, e.g. "motorcyclist".')
     b.add_argument("--seed", type=int, default=41)
+    b.add_argument("--num-outputs", type=int, default=1, help="If >1, sample this many random seeds.")
+    b.add_argument("--save-dir", default="output/text2img", help="Root directory for outputs.")
+    b.add_argument("--side", type=int, default=512, help="Square generation side (512 fits 8GB).")
     b.add_argument("--model-id", default="CompVis/stable-diffusion-v1-4")
     b.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
-    b.set_defaults(func=lambda ns: text2img(ns.prompt, ns.keyword, ns.seed, ns.model_id, ns.device))
+    b.set_defaults(func=text2img)
 
     return p
 
