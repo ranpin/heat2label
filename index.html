@@ -87,7 +87,7 @@
       <table class="h2l-table">
         <tr><th></th><th>DAAM（daam2label）</th><th>Grad-CAM++（cam2label）</th></tr>
         <tr><td class="rowh">热力图来源</td><td>Stable Diffusion <strong>交叉注意力</strong>（DAAM），文本 prompt 驱动</td><td>ImageNet 预训练 ResNet-101 上的 <strong>Grad-CAM++</strong>，预测驱动</td></tr>
-        <tr><td class="rowh">是否生成图像</td><td>是——SD v1.4 img2img 增强，再给输出打框</td><td>否——给已有图像打框</td></tr>
+        <tr><td class="rowh">是否生成图像</td><td>是——SD v1.4 text2img 生成，再给输出打框</td><td>否——给已有图像打框</td></tr>
         <tr><td class="rowh">适用域</td><td>驾驶场景长尾类（motorcyclist、truck）</td><td>COCO zero-shot 划分（65/15、48/17）</td></tr>
         <tr><td class="rowh">框类型</td><td>轴对齐 bbox → label.json（COCO 风格）</td><td>旋转框（cv2.minAreaRect）画在图上</td></tr>
         <tr><td class="rowh">算力</td><td>建议 CUDA GPU ≥ 8GB</td><td>CPU 即可</td></tr>
@@ -105,7 +105,7 @@
        (SD 交叉注意力 | Grad-CAM++)        (BFS 岛提取 | 轮廓 + minAreaRect)</pre></div>
       <table class="h2l-table">
         <tr><th>臂</th><th>方法细节</th></tr>
-        <tr><td class="rowh">DAAM</td><td>SD v1.4 img2img 跨 seed 增强驾驶场景初始图 → 逐词交叉注意力热力图（DAAM）→ 阈值化 + BFS 岛提取 → 长尾类的轴对齐伪框 → 输出 COCO 风格 label.json</td></tr>
+        <tr><td class="rowh">DAAM</td><td>SD v1.4 text2img 从 prompt 直接生成驾驶场景 → 逐词交叉注意力热力图（DAAM）→ 阈值化 + BFS 岛提取 → 长尾类的轴对齐伪框 → 输出 COCO 风格 label.json</td></tr>
         <tr><td class="rowh">Grad-CAM++</td><td>ImageNet 预训练 ResNet-101 → Grad-CAM++ 类激活热力图 → 阈值化 → cv2.minAreaRect 拟合旋转框</td></tr>
       </table>
     </section>
@@ -120,18 +120,17 @@
 const DATA={
   daam:{
     label:"DAAM · SD 交叉注意力",
-    desc:"Stable Diffusion v1.4 img2img 跨 seed 增强一张驾驶场景初始图，再把逐词交叉注意力热力图（DAAM）阈值化、经 BFS 岛提取成长尾类的伪 bounding box。热力图来源：SD 交叉注意力。框：轴对齐，输出为 COCO 风格 label.json。",
+    desc:"Stable Diffusion v1.4 text2img 从 prompt 直接生成一张驾驶场景，再把逐词交叉注意力热力图（DAAM）阈值化、经 BFS 岛提取成长尾类的伪 bounding box。热力图来源：SD 交叉注意力。框：轴对齐，输出为 COCO 风格 label.json。",
     stages:[
-      {key:"input",cap:"输入"},
-      {key:"img",cap:"img2img 输出"},
+      {key:"img",cap:"SD 生成场景"},
       {key:"heat",cap:"DAAM 热力图"},
       {key:"box",cap:"伪框"}
     ],
     samples:[
-      {id:"motorcyclist",name:"motorcyclist",prompt:"motorcyclist on road",keyword:"motorcyclist",
-       label:{"motorcyclist":[[30,5,772,93],[870,618,1080,779],[1087,707,1127,742],[954,709,993,740],[953,743,992,874],[1094,753,1155,808],[1176,779,1228,842]]}},
-      {id:"truck",name:"truck",prompt:"truck on road",keyword:"truck",
-       label:{"truck":[[35,30,664,78],[580,609,1016,934]]}}
+      {id:"motorcyclist",name:"motorcyclist",prompt:"a motorcyclist riding a motorcycle on a city road, dashcam view, daylight, photorealistic",keyword:"motorcyclist",
+       label:{"motorcyclist":[[322,129,443,394]]}},
+      {id:"truck",name:"truck",prompt:"a large truck driving on a highway, dashcam view, daylight, photorealistic",keyword:"truck",
+       label:{"truck":[[297,323,462,511],[465,393,494,430],[145,460,220,511]]}}
     ]
   },
   gradcam:{
