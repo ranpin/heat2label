@@ -1,24 +1,3 @@
-# Python
 __pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-env/
-
-# Outputs
-output/
-*.log
-
-# Model weights / caches
-*.ckpt
-*.safetensors
-*.onnx
-models/
-.diffusers_cache/
-
-# Editors / OS
-.idea/
-.vscode/
+*.pyc
 .DS_Store
-Thumbs.db
