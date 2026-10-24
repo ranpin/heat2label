@@ -35,11 +35,32 @@ image ──► model forward ──► heat map ──► threshold ──► r
 The two arms share no code — they are independent implementations of the
 same trick, kept side by side for comparison.
 
-## Status
+## Status & positioning
 
-2023 research demos, maintained for reference. They are **pre-labeling /
-data-augmentation helpers, not production annotators** — every box is a
+2023 research demos, maintained for reference — **pre-labeling /
+data-augmentation helpers, not production annotators**; every box is a
 pseudo-label that still needs human review.
+
+**As an auto-labeler this approach has been superseded by open-set
+detection.** Measured on an RTX 3070 (SD v1.4 fp16, 512×512, 30 steps), the
+DAAM arm takes ~4.7 s per image — and it can only label images it *generates
+itself*. Modern open-set detectors label *your existing* images far faster
+and cleaner: YOLO-World runs at 52 FPS on a V100 (35.4 LVIS AP), and
+Grounding DINO 1.5 Edge exceeds 10 FPS on a Jetson Orin NX (36.2 LVIS AP).
+Box stability is this approach's weak point too — only ~44% of our seeds
+yielded a single clean box (threshold-sensitive, fragmented heat maps).
+
+**What still has reference value today:**
+
+- **Interpretability** — DAAM exposes token-level attention provenance:
+  which pixels the prompt token attended to at each denoising step.
+  Detectors give boxes without the "why".
+- **Generation–annotation consistency** — when you are already running SD
+  for long-tail data augmentation, the pseudo-labels are nearly free
+  (+~0.1 s per image, ~2%: attention is accumulated as a by-product of
+  generation; heat-map + box extraction measured at 0.01 s + ≤0.2 s), giving
+  a built-in check that the prompted concept was actually generated — where,
+  and how many times.
 
 ## Layout
 
