@@ -1,84 +1,131 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>heat2label — heat map → pseudo bounding-box labels</title>
+<title>heat2label — 热力图 → 伪框标注</title>
+<meta name="description" content="heat2label：把模型内部的热力图变成伪 bounding-box 标注。两条独立的臂——DAAM（SD 交叉注意力）与 Grad-CAM++（ResNet-101 CAM）。预计算演示，走完整热力图→伪框管线。">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231e3a8a'/%3E%3Crect x='6' y='6' width='9' height='9' rx='1' fill='white' opacity='0.92'/%3E%3Crect x='17' y='17' width='9' height='9' rx='1' fill='white' opacity='0.5'/%3E%3C/svg%3E">
+<!-- 共享演示页外壳（单一事实源在主站 public/demo-shell.css） -->
+<link rel="stylesheet" href="https://ranpin.github.io/demo-shell.css">
+<!-- 明暗主题：同步加载，首屏绘制前应用已存主题，避免闪烁 -->
+<script src="https://ranpin.github.io/theme.js"></script>
 <style>
-:root{
-  --bg:#fff; --ink:#1a1a1a; --muted:#6b7280; --border:#e5e7eb;
-  --accent:#1e3a8a; --accent-light:#eff3fb; --code-bg:#f7f8fa; --stage-bg:#fafafa;
-}
-*{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased}
-.wrap{max-width:1100px;margin:0 auto;padding:0 24px}
-header{text-align:center;padding:56px 0 4px}
-h1{font-size:34px;font-weight:700;letter-spacing:-0.02em;margin:0}
-.tagline{color:var(--muted);font-size:16px;margin:10px 0 0}
-.note{display:inline-block;margin-top:16px;font-size:12.5px;color:var(--muted);background:var(--code-bg);border:1px solid var(--border);border-radius:999px;padding:5px 14px}
-.tabs{display:flex;justify-content:center;gap:6px;border-bottom:1px solid var(--border);margin-top:34px}
-.tab{padding:12px 20px;font-size:15px;font-weight:600;color:var(--muted);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:color .18s,border-color .18s;font-family:inherit}
-.tab:hover{color:var(--ink)}
-.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
-.arm-desc{max-width:780px;margin:26px auto 0;text-align:center;color:var(--muted);font-size:14.5px}
-.samples{display:flex;justify-content:center;gap:10px;margin-top:22px;flex-wrap:wrap}
-.pill{padding:7px 18px;font-size:14px;border:1px solid var(--border);border-radius:999px;background:#fff;color:var(--ink);cursor:pointer;transition:background .18s,color .18s,border-color .18s;font-family:inherit}
-.pill:hover{border-color:var(--accent);color:var(--accent)}
-.pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
-.prompt-note{text-align:center;color:var(--muted);font-size:13px;margin-top:14px;font-family:ui-monospace,Menlo,Consolas,monospace;min-height:20px}
-.pipeline{display:flex;justify-content:center;align-items:flex-start;gap:4px;margin-top:24px;flex-wrap:wrap}
-.stage{text-align:center}
-.stage img{width:232px;height:152px;object-fit:contain;background:var(--stage-bg);border:1px solid var(--border);border-radius:8px;display:block;transition:border-color .18s}
-.stage:hover img{border-color:var(--accent)}
-.stage .cap{font-size:12.5px;color:var(--muted);margin-top:8px}
-.arrow{color:#c3c8cf;font-size:22px;margin-top:62px;padding:0 4px;user-select:none}
-.label-json{max-width:780px;margin:26px auto 0;background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 18px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:var(--ink);overflow-x:auto;text-align:left;white-space:pre-wrap;word-break:break-word}
-.label-json .k{color:var(--accent);font-weight:600}
-footer{text-align:center;color:var(--muted);font-size:13px;padding:46px 0 42px}
-footer a{color:var(--accent);text-decoration:none}
-footer a:hover{text-decoration:underline}
-@media(max-width:680px){
-  .stage img{width:min(86vw,300px);height:auto;aspect-ratio:232/152}
-  .arrow{display:none}
-  .pipeline{gap:16px}
-  h1{font-size:28px}
-}
+  /* heat2label 专属组件（tab/样本/管线/JSON/对比表），结构色一律引用外壳 --ds-* 变量 */
+  .h2l-tabs{display:flex;justify-content:center;gap:6px;border-bottom:1px solid var(--ds-border);margin:10px 0 0;flex-wrap:wrap}
+  .h2l-tab{padding:11px 20px;font-size:14.5px;font-weight:600;color:var(--ds-muted);cursor:pointer;border:none;
+    background:none;border-bottom:2px solid transparent;transition:color .18s,border-color .18s;font-family:inherit}
+  .h2l-tab:hover{color:var(--ds-text)}
+  .h2l-tab.active{color:var(--ds-accent);border-bottom-color:var(--ds-accent)}
+  .h2l-desc{max-width:820px;margin:20px auto 0;text-align:center;color:var(--ds-muted);font-size:14.5px;line-height:1.75}
+  .h2l-samples{display:flex;justify-content:center;gap:10px;margin-top:20px;flex-wrap:wrap}
+  .h2l-pill{padding:7px 18px;font-size:13.5px;border:1px solid var(--ds-border);border-radius:999px;
+    background:var(--ds-panel);color:var(--ds-text);cursor:pointer;transition:all .18s;font-family:inherit}
+  .h2l-pill:hover{border-color:var(--ds-accent);color:var(--ds-accent)}
+  .h2l-pill.active{background:var(--ds-accent);border-color:var(--ds-accent);color:#fff}
+  .h2l-prompt{text-align:center;color:var(--ds-faint);font-size:12.5px;margin-top:14px;font-family:var(--ds-mono);min-height:18px}
+  .h2l-pipeline{display:flex;justify-content:center;align-items:flex-start;gap:4px;margin-top:22px;flex-wrap:wrap}
+  .h2l-stage{text-align:center}
+  .h2l-stage img{width:232px;height:152px;object-fit:contain;background:var(--ds-code-bg);border:1px solid var(--ds-border);
+    border-radius:8px;display:block;transition:border-color .18s}
+  .h2l-stage:hover img{border-color:var(--ds-accent)}
+  .h2l-stage .cap{font-size:12px;color:var(--ds-muted);margin-top:8px}
+  .h2l-arrow{color:var(--ds-faint);font-size:22px;margin-top:62px;padding:0 4px;user-select:none}
+  .h2l-json{max-width:820px;margin:24px auto 0;background:var(--ds-code-bg);border:1px solid var(--ds-border);
+    border-radius:8px;padding:16px 18px;font-family:var(--ds-mono);font-size:12.5px;color:var(--ds-text);
+    overflow-x:auto;text-align:left;white-space:pre-wrap;word-break:break-word}
+  .h2l-json .k{color:var(--ds-accent-strong);font-weight:600}
+  .h2l-table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;background:var(--ds-panel);
+    border:1px solid var(--ds-border);border-radius:10px;overflow:hidden}
+  .h2l-table th,.h2l-table td{padding:9px 13px;border:1px solid var(--ds-border);text-align:left;vertical-align:top;line-height:1.6}
+  .h2l-table th{background:var(--ds-code-bg);color:var(--ds-muted);font-weight:600}
+  .h2l-table td.rowh{color:var(--ds-muted);font-weight:600;white-space:nowrap;background:var(--ds-code-bg)}
+  .h2l-flow{background:var(--ds-code-bg);border:1px solid var(--ds-border);border-radius:10px;padding:18px;overflow-x:auto;margin:14px 0}
+  .h2l-flow pre{margin:0;font-family:var(--ds-mono);font-size:12.5px;line-height:1.7;color:var(--ds-text);background:none;border:none;padding:0}
+  .h2l-note{font-size:13px;color:var(--ds-faint);margin-top:10px;line-height:1.65}
+  @media(max-width:680px){
+    .h2l-stage img{width:min(86vw,300px);height:auto;aspect-ratio:232/152}
+    .h2l-arrow{display:none}
+    .h2l-pipeline{gap:16px}
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>heat2label</h1>
-    <p class="tagline">Turn a model's internal heat map into pseudo bounding-box labels — two independent arms.</p>
-    <span class="note">Precomputed walkthrough · both models are too heavy to run in-browser · reproduce from the repo</span>
+  <header class="ds-header">
+    <div class="ds-header__inner">
+      <div class="ds-header__row">
+        <a class="ds-home" href="https://ranpin.github.io/">← 返回主页</a>
+        <h1>heat2label</h1>
+        <button class="ds-theme-btn" type="button" onclick="toggleTheme()" aria-label="切换明暗主题"><span class="ds-theme-icon">🌙</span></button>
+      </div>
+      <p class="ds-header__sub">把模型内部的热力图变成伪 bounding-box 标注，让图像无需手画每个框就能（预）标注。两条独立的臂——同一思路的两种实现。</p>
+    </div>
   </header>
 
-  <nav class="tabs" id="tabs"></nav>
+  <div class="ds-wrap">
+    <nav class="ds-nav">
+      <span class="ds-nav__spacer"></span>
+      <a class="ds-navlink" href="https://github.com/ranpin/heat2label" target="_blank" rel="noopener">GitHub 源码 ↗</a>
+    </nav>
 
-  <main>
-    <p class="arm-desc" id="desc"></p>
-    <div class="samples" id="samples"></div>
-    <p class="prompt-note" id="prompt"></p>
-    <div class="pipeline" id="pipeline"></div>
-    <pre class="label-json" id="labelJson"></pre>
-  </main>
+    <!-- ============ 演示 ============ -->
+    <section class="ds-section">
+      <h2 class="ds-h2">演示</h2>
+      <p class="ds-muted" style="font-size:14px;margin:0 0 4px;text-align:center">预计算演示 · 两个模型都太重、无法在浏览器内运行 · 复现见仓库。切换 DAAM / Grad-CAM++ 两条臂，选择样本，走完整「热力图 → 伪框」管线。</p>
+      <nav class="h2l-tabs" id="tabs"></nav>
+      <p class="h2l-desc" id="desc"></p>
+      <div class="h2l-samples" id="samples"></div>
+      <p class="h2l-prompt" id="prompt"></p>
+      <div class="h2l-pipeline" id="pipeline"></div>
+      <pre class="h2l-json" id="labelJson"></pre>
+    </section>
 
-  <footer>
-    Source, models &amp; reproduction → <a href="https://github.com/ranpin/heat2label">github.com/ranpin/heat2label</a>
-  </footer>
-</div>
+    <!-- ============ 评测结果 ============ -->
+    <section class="ds-section">
+      <h2 class="ds-h2">评测结果</h2>
+      <p class="ds-muted" style="font-size:14px;margin:0 0 4px">两条臂是同一思路（热力图 → 伪框）的两种独立实现，下表对比各自的热力图来源、产出形态与适用域。</p>
+      <table class="h2l-table">
+        <tr><th></th><th>DAAM（daam2label）</th><th>Grad-CAM++（cam2label）</th></tr>
+        <tr><td class="rowh">热力图来源</td><td>Stable Diffusion <strong>交叉注意力</strong>（DAAM），文本 prompt 驱动</td><td>ImageNet 预训练 ResNet-101 上的 <strong>Grad-CAM++</strong>，预测驱动</td></tr>
+        <tr><td class="rowh">是否生成图像</td><td>是——SD v1.4 img2img 增强，再给输出打框</td><td>否——给已有图像打框</td></tr>
+        <tr><td class="rowh">适用域</td><td>驾驶场景长尾类（motorcyclist、truck）</td><td>COCO zero-shot 划分（65/15、48/17）</td></tr>
+        <tr><td class="rowh">框类型</td><td>轴对齐 bbox → label.json（COCO 风格）</td><td>旋转框（cv2.minAreaRect）画在图上</td></tr>
+        <tr><td class="rowh">算力</td><td>建议 CUDA GPU ≥ 8GB</td><td>CPU 即可</td></tr>
+        <tr><td class="rowh">入口</td><td>demo_daam.py（argparse CLI）</td><td>gradcam/cam.py、gradcam/test.py</td></tr>
+      </table>
+      <p class="h2l-note">两臂不共享代码，是同一技巧的两种独立实现，并列保留以便对比；产出的每个框都是<strong>伪标注、仍需人工复核</strong>（定位是预标注 / 数据增强助手，非生产级标注器，详见仓库 README）。本表对比两臂的产出特征，非定量精度基准。</p>
+    </section>
+
+    <!-- ============ 核心方法 ============ -->
+    <section class="ds-section">
+      <h2 class="ds-h2">核心方法</h2>
+      <p class="ds-muted" style="font-size:14px;margin:0 0 4px">两条臂共享同一条管线，只在「热力图从哪来」和「服务什么域」上不同。</p>
+      <div class="h2l-flow"><pre>图像 ──► 模型前向 ──► 热力图 ──► 阈值化 ──► 区域 ──► 框
+                │                                    │
+       (SD 交叉注意力 | Grad-CAM++)        (BFS 岛提取 | 轮廓 + minAreaRect)</pre></div>
+      <table class="h2l-table">
+        <tr><th>臂</th><th>方法细节</th></tr>
+        <tr><td class="rowh">DAAM</td><td>SD v1.4 img2img 跨 seed 增强驾驶场景初始图 → 逐词交叉注意力热力图（DAAM）→ 阈值化 + BFS 岛提取 → 长尾类的轴对齐伪框 → 输出 COCO 风格 label.json</td></tr>
+        <tr><td class="rowh">Grad-CAM++</td><td>ImageNet 预训练 ResNet-101 → Grad-CAM++ 类激活热力图 → 阈值化 → cv2.minAreaRect 拟合旋转框</td></tr>
+      </table>
+    </section>
+
+    <footer class="ds-footer">
+      heat2label · 热力图 → 伪框标注（DAAM + Grad-CAM++ 两条臂，2023 研究 demo，MIT）<br>
+      源码、模型与复现见 <a href="https://github.com/ranpin/heat2label">github.com/ranpin/heat2label</a>
+    </footer>
+  </div>
 
 <script>
 const DATA={
   daam:{
-    label:"DAAM · SD cross-attention",
-    desc:"Stable Diffusion v1.4 img2img augments a driving-scene init image across seeds, then per-word cross-attention heat maps (DAAM) are thresholded via BFS island extraction into pseudo bounding boxes for long-tail classes. Heat-map source: SD cross-attention. Boxes: axis-aligned, emitted as a COCO-style label.json.",
+    label:"DAAM · SD 交叉注意力",
+    desc:"Stable Diffusion v1.4 img2img 跨 seed 增强一张驾驶场景初始图，再把逐词交叉注意力热力图（DAAM）阈值化、经 BFS 岛提取成长尾类的伪 bounding box。热力图来源：SD 交叉注意力。框：轴对齐，输出为 COCO 风格 label.json。",
     stages:[
-      {key:"input",cap:"input"},
-      {key:"img",cap:"img2img output"},
-      {key:"heat",cap:"DAAM heat map"},
-      {key:"box",cap:"pseudo boxes"}
+      {key:"input",cap:"输入"},
+      {key:"img",cap:"img2img 输出"},
+      {key:"heat",cap:"DAAM 热力图"},
+      {key:"box",cap:"伪框"}
     ],
     samples:[
       {id:"motorcyclist",name:"motorcyclist",prompt:"motorcyclist on road",keyword:"motorcyclist",
@@ -89,11 +136,11 @@ const DATA={
   },
   gradcam:{
     label:"Grad-CAM++",
-    desc:"Grad-CAM++ on an ImageNet-pretrained ResNet-101 yields a class-activation heat map, which is thresholded and fit with a rotated bounding box (cv2.minAreaRect). Heat-map source: classification CAM. Boxes: rotated.",
+    desc:"在 ImageNet 预训练的 ResNet-101 上做 Grad-CAM++，得到类激活热力图，阈值化后用 cv2.minAreaRect 拟合旋转 bounding box。热力图来源：分类 CAM。框：旋转框。",
     stages:[
-      {key:"input",cap:"input (224×224)"},
-      {key:"heat",cap:"Grad-CAM++ heat map"},
-      {key:"box",cap:"rotated box"}
+      {key:"input",cap:"输入（224×224）"},
+      {key:"heat",cap:"Grad-CAM++ 热力图"},
+      {key:"box",cap:"旋转框"}
     ],
     samples:[
       {id:"cat",name:"cat"},
@@ -113,7 +160,7 @@ function render(){
   const tabs=$("tabs");tabs.innerHTML="";
   for(const a of ["daam","gradcam"]){
     const b=document.createElement("button");
-    b.className="tab"+(a===arm?" active":"");
+    b.className="h2l-tab"+(a===arm?" active":"");
     b.textContent=DATA[a].label;
     b.onclick=()=>{arm=a;render();};
     tabs.appendChild(b);
@@ -124,7 +171,7 @@ function render(){
   const sp=$("samples");sp.innerHTML="";
   for(const sm of D.samples){
     const b=document.createElement("button");
-    b.className="pill"+(sm.id===s?" active":"");
+    b.className="h2l-pill"+(sm.id===s?" active":"");
     b.textContent=sm.name;
     b.onclick=()=>{sel[arm]=sm.id;render();};
     sp.appendChild(b);
@@ -134,8 +181,8 @@ function render(){
   // pipeline
   const pl=$("pipeline");pl.innerHTML="";
   D.stages.forEach((st,i)=>{
-    if(i>0){const ar=document.createElement("div");ar.className="arrow";ar.textContent="→";pl.appendChild(ar);}
-    const d=document.createElement("div");d.className="stage";
+    if(i>0){const ar=document.createElement("div");ar.className="h2l-arrow";ar.textContent="→";pl.appendChild(ar);}
+    const d=document.createElement("div");d.className="h2l-stage";
     const im=document.createElement("img");im.src=imgPath(arm,s,st.key);im.alt=st.cap;
     const c=document.createElement("div");c.className="cap";c.textContent=st.cap;
     d.appendChild(im);d.appendChild(c);pl.appendChild(d);
