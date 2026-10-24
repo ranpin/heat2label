@@ -129,8 +129,8 @@ const DATA={
     samples:[
       {id:"motorcyclist",name:"motorcyclist",prompt:"a motorcyclist riding a motorcycle on a city road, dashcam view, daylight, photorealistic",keyword:"motorcyclist",
        label:{"motorcyclist":[[322,129,443,394]]}},
-      {id:"truck",name:"truck",prompt:"a large truck driving on a highway, dashcam view, daylight, photorealistic",keyword:"truck",
-       label:{"truck":[[297,323,462,511],[465,393,494,430],[145,460,220,511]]}}
+      {id:"truck",name:"truck",prompt:"a large truck close-up, front view, filling the frame, on a highway, daylight, photorealistic",keyword:"truck",
+       label:{"truck":[[142,39,449,385],[296,168,347,201]]}}
     ]
   },
   gradcam:{
@@ -153,6 +153,18 @@ let arm="daam";
 const sel={daam:"motorcyclist",gradcam:"cat"};
 const $=id=>document.getElementById(id);
 const imgPath=(a,s,k)=>`assets/${a}/${s}/${k}.png`;
+// label.json：每个框 [x1,y1,x2,y2] 占一行（JSON.stringify indent=2 会把每个数字摊成一行）
+function fmtLabel(obj){
+  const keys=Object.keys(obj),out=["{"];
+  keys.forEach((k,ki)=>{
+    const bx=obj[k];
+    out.push('  "'+k+'": [');
+    bx.forEach((b,bi)=>out.push("    ["+b.join(", ")+"]"+(bi<bx.length-1?",":"")));
+    out.push("  ]"+(ki<keys.length-1?",":""));
+  });
+  out.push("}");
+  return out.join("\n");
+}
 
 function render(){
   // tabs
@@ -188,7 +200,7 @@ function render(){
   });
   // label.json (DAAM only)
   const lj=$("labelJson");
-  if(sm.label){lj.style.display="block";lj.innerHTML='<span class="k">label.json</span>\n'+JSON.stringify(sm.label,null,2);}
+  if(sm.label){lj.style.display="block";lj.innerHTML='<span class="k">label.json</span>\n'+fmtLabel(sm.label);}
   else{lj.style.display="none";}
 }
 render();
