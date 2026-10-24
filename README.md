@@ -47,8 +47,11 @@ DAAM arm takes ~4.7 s per image — and it can only label images it *generates
 itself*. Modern open-set detectors label *your existing* images far faster
 and cleaner: YOLO-World runs at 52 FPS on a V100 (35.4 LVIS AP), and
 Grounding DINO 1.5 Edge exceeds 10 FPS on a Jetson Orin NX (36.2 LVIS AP).
-Box stability is this approach's weak point too — only ~44% of our seeds
-yielded a single clean box (threshold-sensitive, fragmented heat maps).
+Box stability is this approach's weak point too — across the 568-seed,
+31-keyword generation campaign behind the demo, only ~26% of generations
+yielded a single clean box, and the rate is strongly category-dependent
+(75% for `scissors` vs ~5% for `cat`/`couch` even after 64 seeds each with
+prompt variants; threshold-sensitive, fragmented heat maps).
 
 **What still has reference value today:**
 
