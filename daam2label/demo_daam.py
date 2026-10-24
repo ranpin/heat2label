@@ -84,10 +84,13 @@ def _load_image_list(list_file):
 
 
 def text2img(args):
-    """Text2img labeling: SD generates a driving scene straight from the prompt
-    (no init image), then the per-word DAAM heat map is thresholded via BFS into
-    pseudo bounding boxes. Saves img.png / heat.png / box.png / label.json /
+    """Text2img labeling: SD generates a scene straight from the prompt (no init
+    image), then the per-word DAAM heat map is thresholded via BFS into pseudo
+    bounding boxes. Saves img.png / heat.png / box.png / label.json /
     timing.json per seed — the text-to-image counterpart of ``img2img``.
+
+    ``--manifest`` batches many {"prompt", "keyword", "num_seeds"} entries
+    under a single model load (used to build the demo-page asset set).
 
     timing.json records per-stage wall clock, measured with
     ``torch.cuda.synchronize`` so async GPU work lands in the right stage:
@@ -100,6 +103,16 @@ def text2img(args):
         if args.device != "cpu":
             torch.cuda.synchronize()
 
+    if args.manifest:
+        with open(args.manifest, "r") as f:
+            entries = json.load(f)
+    elif args.prompt and args.keyword:
+        entries = [{"prompt": args.prompt, "keyword": args.keyword,
+                    "seeds": [args.seed] if args.num_outputs <= 1
+                    else random.sample(range(10000), args.num_outputs)}]
+    else:
+        raise SystemExit("text2img: pass --manifest, or both --prompt and --keyword")
+
     load_dtype = torch.float16 if args.device != "cpu" else torch.float32
     t = time.perf_counter()
     pipe = StableDiffusionPipeline.from_pretrained(
@@ -111,70 +124,74 @@ def text2img(args):
     load_s = time.perf_counter() - t
     print(f"[text2img] model load: {load_s:.1f}s (one-time)")
 
-    seeds = [args.seed] if args.num_outputs <= 1 else random.sample(range(10000), args.num_outputs)
-    for seed in seeds:
-        save_path = os.path.join(args.save_dir, args.keyword, str(seed))
-        os.makedirs(save_path, exist_ok=True)
-        gen = set_seed(seed)
-        with torch.cuda.amp.autocast(
-            dtype=torch.float16, enabled=(args.device != "cpu")
-        ), torch.no_grad():
-            with trace(pipe) as tc:
-                sync()
-                t = time.perf_counter()
-                out = pipe(
-                    args.prompt,
-                    num_inference_steps=30,
-                    generator=gen,
-                    height=args.side,
-                    width=args.side,
-                )
-                sync()
-                gen_s = time.perf_counter() - t
+    for entry in entries:
+        prompt, keyword = entry["prompt"], entry["keyword"]
+        seeds = entry.get("seeds") or random.sample(range(10000), entry.get("num_seeds", 1))
+        for seed in seeds:
+            save_path = os.path.join(args.save_dir, keyword, str(seed))
+            os.makedirs(save_path, exist_ok=True)
+            gen = set_seed(seed)
+            with torch.cuda.amp.autocast(
+                dtype=torch.float16, enabled=(args.device != "cpu")
+            ), torch.no_grad():
+                with trace(pipe) as tc:
+                    sync()
+                    t = time.perf_counter()
+                    out = pipe(
+                        prompt,
+                        num_inference_steps=30,
+                        generator=gen,
+                        height=args.side,
+                        width=args.side,
+                    )
+                    sync()
+                    gen_s = time.perf_counter() - t
 
-                t = time.perf_counter()
-                hm = tc.compute_global_heat_map().compute_word_heat_map(args.keyword)
-                sync()
-                heat_s = time.perf_counter() - t
+                    t = time.perf_counter()
+                    hm = tc.compute_global_heat_map().compute_word_heat_map(keyword)
+                    sync()
+                    heat_s = time.perf_counter() - t
 
-                t = time.perf_counter()
-                out_img, out_heat, out_bbox = hm.plot_overlay(
-                    out.images[0], src_size=out.images[0].size
-                )
-                sync()
-                box_s = time.perf_counter() - t
+                    t = time.perf_counter()
+                    out_img, out_heat, out_bbox = hm.plot_overlay(
+                        out.images[0], src_size=out.images[0].size
+                    )
+                    sync()
+                    box_s = time.perf_counter() - t
 
-                out_heat_vis = cv2.applyColorMap(
-                    np.uint8(255 * out_heat), cv2.COLORMAP_JET
-                )
-                show = deepcopy(out_img)
-                valid = []
-                for bbox in out_bbox:
-                    bbox = [int(b) for b in bbox]
-                    valid.append(bbox)
-                    cv2.rectangle(show, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 255), 4)
-                cv2.imwrite(os.path.join(save_path, "img.png"), out_img)
-                cv2.imwrite(os.path.join(save_path, "heat.png"), out_heat_vis)
-                cv2.imwrite(os.path.join(save_path, "box.png"), show)
-                with open(os.path.join(save_path, "label.json"), "w") as f:
-                    json.dump({args.keyword: valid}, f)
-        timing = {
-            "gen_s": round(gen_s, 2),
-            "heat_s": round(heat_s, 2),
-            "box_s": round(box_s, 2),
-            "total_s": round(gen_s + heat_s + box_s, 2),
-            "model_load_s": round(load_s, 1),
-            "device": args.device,
-            "model_id": args.model_id,
-            "side": args.side,
-            "steps": 30,
-        }
-        with open(os.path.join(save_path, "timing.json"), "w") as f:
-            json.dump(timing, f)
-        print(
-            f"[text2img] {args.keyword} seed={seed} -> {save_path} ({len(valid)} boxes) "
-            f"gen={gen_s:.2f}s heat={heat_s:.2f}s box={box_s:.2f}s total={timing['total_s']:.2f}s"
-        )
+                    out_heat_vis = cv2.applyColorMap(
+                        np.uint8(255 * out_heat), cv2.COLORMAP_JET
+                    )
+                    show = deepcopy(out_img)
+                    valid = []
+                    for bbox in out_bbox:
+                        bbox = [int(b) for b in bbox]
+                        valid.append(bbox)
+                        cv2.rectangle(show, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 255), 4)
+                    cv2.imwrite(os.path.join(save_path, "img.png"), out_img)
+                    cv2.imwrite(os.path.join(save_path, "heat.png"), out_heat_vis)
+                    cv2.imwrite(os.path.join(save_path, "box.png"), show)
+                    with open(os.path.join(save_path, "label.json"), "w") as f:
+                        json.dump({keyword: valid}, f)
+            timing = {
+                "gen_s": round(gen_s, 2),
+                "heat_s": round(heat_s, 2),
+                "box_s": round(box_s, 2),
+                "total_s": round(gen_s + heat_s + box_s, 2),
+                "model_load_s": round(load_s, 1),
+                "device": args.device,
+                "model_id": args.model_id,
+                "side": args.side,
+                "steps": 30,
+                "prompt": prompt,
+                "keyword": keyword,
+            }
+            with open(os.path.join(save_path, "timing.json"), "w") as f:
+                json.dump(timing, f)
+            print(
+                f"[text2img] {keyword} seed={seed} -> {save_path} ({len(valid)} boxes) "
+                f"gen={gen_s:.2f}s heat={heat_s:.2f}s box={box_s:.2f}s total={timing['total_s']:.2f}s"
+            )
 
 
 def img2img(args):
@@ -278,9 +295,10 @@ def build_parser():
     a.set_defaults(func=img2img)
 
     # ---- text2img labeling (generate scene + pseudo bbox) ----
-    b = sub.add_parser("text2img", help="Generate driving scene from prompt + pseudo bbox labels (no init image).")
-    b.add_argument("--prompt", required=True, help='SD prompt, e.g. "a motorcyclist riding on a road, dashcam view".')
-    b.add_argument("--keyword", required=True, help='Token whose heat map becomes bboxes, e.g. "motorcyclist".')
+    b = sub.add_parser("text2img", help="Generate scenes from prompts + pseudo bbox labels (no init image).")
+    b.add_argument("--prompt", help='SD prompt, e.g. "a motorcyclist on the road".')
+    b.add_argument("--keyword", help='Token whose heat map becomes bboxes, e.g. "motorcyclist".')
+    b.add_argument("--manifest", help='JSON list of {"prompt", "keyword", "num_seeds"} entries; batch many keywords under one model load.')
     b.add_argument("--seed", type=int, default=41)
     b.add_argument("--num-outputs", type=int, default=1, help="If >1, sample this many random seeds.")
     b.add_argument("--save-dir", default="output/text2img", help="Root directory for outputs.")

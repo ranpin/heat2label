@@ -63,7 +63,8 @@ def myimshows(imgs, output_dir, titles=False, fname=" ", size=6):
 def drawBounding(img, img1, output_dir, fname=" "):
     img = cv2.applyColorMap(np.uint8(255 * img), colormap=2)
     ret, thresh = cv2.threshold(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 170, 255, 0)  # 修改阈值可以微调包围框
-    _, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)  # 得到轮廓信息
+    found = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)  # 得到轮廓信息
+    contours = found[0] if len(found) == 2 else found[1]  # cv2 4.x 返回两值 / 3.x 三值
     cnt = contours[0]
     x, y, w, h = cv2.boundingRect(cnt)
     # Straight Bounding Rectangle
