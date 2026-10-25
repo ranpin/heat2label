@@ -29,18 +29,18 @@
   .h2l-rowhead{font-size:14px;font-weight:600;color:var(--ds-text);text-align:center;margin:24px 0 0}
   .h2l-prompt{text-align:center;color:var(--ds-faint);font-size:12.5px;margin-top:14px;font-family:var(--ds-mono);min-height:18px}
   .h2l-pipeline{display:flex;justify-content:center;align-items:flex-start;gap:4px;margin-top:22px;flex-wrap:wrap}
-  .h2l-stage{text-align:center}
-  .h2l-stage img{width:232px;height:152px;object-fit:contain;background:var(--ds-code-bg);border:1px solid var(--ds-border);
+  .h2l-stage{text-align:center;width:170px}
+  .h2l-stage img{width:170px;height:111px;object-fit:contain;background:var(--ds-code-bg);border:1px solid var(--ds-border);
     border-radius:8px;display:block;transition:border-color .18s}
   .h2l-stage:hover img{border-color:var(--ds-accent)}
   .h2l-stage .cap{font-size:12px;color:var(--ds-muted);margin-top:8px}
-  .h2l-arrow{color:var(--ds-faint);font-size:22px;margin-top:62px;padding:0 4px;user-select:none}
+  .h2l-arrow{color:var(--ds-faint);font-size:20px;margin-top:45px;padding:0 2px;user-select:none}
   .h2l-json{max-width:820px;margin:24px auto 0;background:var(--ds-code-bg);border:1px solid var(--ds-border);
     border-radius:8px;padding:16px 18px;font-family:var(--ds-mono);font-size:12.5px;color:var(--ds-text);
     overflow-x:auto;text-align:left;white-space:pre-wrap;word-break:break-word}
   .h2l-json .k{color:var(--ds-accent-strong);font-weight:600}
-  .h2l-stagegroup{display:flex;align-items:flex-start;gap:16px}
-  .h2l-stagegroup .h2l-json{max-width:340px;margin:0;font-size:12px;padding:12px 14px}
+  .h2l-stagegroup{display:flex;align-items:flex-start;gap:10px}
+  .h2l-stagegroup .h2l-json{max-width:210px;margin:0;font-size:11px;line-height:1.45;padding:10px}
   .h2l-table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;background:var(--ds-panel);
     border:1px solid var(--ds-border);border-radius:10px;overflow:hidden}
   .h2l-table th,.h2l-table td{padding:9px 13px;border:1px solid var(--ds-border);text-align:left;vertical-align:top;line-height:1.6}
@@ -50,11 +50,13 @@
   .h2l-flow pre{margin:0;font-family:var(--ds-mono);font-size:12.5px;line-height:1.7;color:var(--ds-text);background:none;border:none;padding:0}
   .h2l-note{font-size:13px;color:var(--ds-faint);margin-top:10px;line-height:1.65}
   @media(max-width:680px){
-    .h2l-stage img{width:min(86vw,300px);height:auto;aspect-ratio:232/152}
+    .h2l-stage{width:auto}
+    .h2l-stage img{width:min(86vw,300px);height:auto;aspect-ratio:170/111}
     .h2l-arrow{display:none}
     .h2l-pipeline{gap:16px}
     .h2l-stagegroup{flex-direction:column}
     .h2l-stagegroup .h2l-json{max-width:min(86vw,300px)}
+    .h2l-table{display:block;overflow-x:auto}
   }
 </style>
 </head>
