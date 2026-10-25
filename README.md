@@ -1,8 +1,8 @@
 # heat2label
 
-**🔗 Live demo — https://ranpin.github.io/heat2label/** · pick the DAAM or
-Grad-CAM arm and walk the full heat-map → pseudo-box pipeline (precomputed;
-both models are too heavy to run in-browser).
+**🔗 Live demo — https://ranpin.github.io/heat2label/** · pick the Grad-CAM++
+or DAAM arm (or the side-by-side compare view) and walk the full heat-map →
+pseudo-box pipeline (precomputed; both models are too heavy to run in-browser).
 
 Two experiments on the same idea: **turn a model's internal heat map into
 pseudo bounding-box labels**, so images can be (pre-)annotated without
@@ -18,11 +18,11 @@ Each arm is self-contained — `cd` into it, install its own
 | | [`daam2label/`](daam2label/) | [`cam2label/`](cam2label/) |
 |---|---|---|
 | Heat-map source | Stable-Diffusion **cross-attention** (DAAM), text-prompt driven | **Grad-CAM++** on an ImageNet ResNet-101, prediction driven |
-| Generates images? | Yes — SD v1.4 text2img generation, then labels the outputs | No — labels images that already exist |
-| Domain | Driving-scene long-tail classes (`motorcyclist`, `truck`) | COCO zero-shot splits (65/15, 48/17) |
+| Generates images? | Yes — SD v1.4 text2img generation + labeling in one script | No — the arm only labels; its images are **dalle-mini generations** (author's 2023-02 wandb experiment), not COCO photos |
+| Domain | The same COCO zero-shot class set as cam2label (side-by-side comparison) + driving long-tail (`motorcyclist`, `truck`) | COCO zero-shot novel classes (65/15, 48/17 splits) — all images dalle-mini-generated |
 | Box type | Axis-aligned bbox → `label.json` (COCO-flavoured) | Rotated box (`cv2.minAreaRect`) drawn on the image |
-| Compute | CUDA GPU ≥ 8 GB recommended | CPU is fine |
-| Entry point | `demo_daam.py` (argparse CLI) | `gradcam/cam.py`, `gradcam/test.py` |
+| Compute | CUDA GPU ≥ 8 GB (measured ~4.7 s/image) | CPU is fine (measured ~0.3 s/image) |
+| Entry point | `demo_daam.py` (argparse CLI, `--manifest` batch mode) | `gradcam/cam.py`, `gradcam/test.py`, `gradcam/demo_assets.py` |
 
 **Shared pipeline**
 
@@ -33,7 +33,10 @@ image ──► model forward ──► heat map ──► threshold ──► r
 ```
 
 The two arms share no code — they are independent implementations of the
-same trick, kept side by side for comparison.
+same trick, kept side by side for comparison. Both are *generation →
+annotation* pipelines from different eras: cam2label labels dalle-mini
+generations (2023), daam2label generates with SD v1.4 and labels in one
+pass (2023 method, reproduced 2026).
 
 ## Status & positioning
 
@@ -69,8 +72,8 @@ prompt variants; threshold-sensitive, fragmented heat maps).
 
 ```
 heat2label/
-├── daam2label/     # arm 1 — SD cross-attention (DAAM) → driving-scene boxes
-├── cam2label/      # arm 2 — Grad-CAM++ → COCO zero-shot rotated boxes
+├── daam2label/     # SD cross-attention (DAAM) → text2img generation + boxes
+├── cam2label/      # Grad-CAM++ → rotated boxes on dalle-mini-generated COCO novel-class images
 ├── LICENSE         # MIT (covers both arms; the DAAM fork inherits upstream MIT)
 └── README.md
 ```
