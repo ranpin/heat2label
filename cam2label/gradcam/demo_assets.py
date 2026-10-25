@@ -3,8 +3,9 @@
 与 cam.py 同一管线（resize 224×224 → GradCAMPlusPlus layer4[-1]，
 targets=None 用预测类 → JET 热力图 → 阈值 170 → 第一个轮廓 →
 minAreaRect 绿色旋转框），但每张图产出 demo 资产套件：
-input.png / heat.png / box.png + timing.json（分阶段墙钟，不含文件 I/O）
-+ meta.json（ResNet-101 预测类别）。兼容 OpenCV 3.x/4.x。
+input.png / heat.png / box.png + label.json（旋转框坐标，minAreaRect
+四角点 + 角度）+ timing.json（分阶段墙钟，不含文件 I/O）+ meta.json
+（ResNet-101 预测类别）。兼容 OpenCV 3.x/4.x。
 
 用法（先 cd 到本目录）：
     python demo_assets.py --input-dir imgs65_15 --out-dir demo_assets/65_15
@@ -73,7 +74,8 @@ def main():
             found = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             contours = found[0] if len(found) == 2 else found[1]  # cv2 4.x 两值 / 3.x 三值
             cnt = contours[0]
-            box = np.int64(cv2.boxPoints(cv2.minAreaRect(cnt)))
+            rect = cv2.minAreaRect(cnt)
+            box = np.int64(cv2.boxPoints(rect))
             boxed = cv2.drawContours(bgr.copy(), [box], 0, (0, 255, 0), 2)
             box_s = time.perf_counter() - t
 
@@ -90,6 +92,12 @@ def main():
             meta = {"image": name, "pred_idx": pred_idx, "pred_class": categories[pred_idx]}
             with open(os.path.join(out_dir, "meta.json"), "w") as f:
                 json.dump(meta, f)
+            label = {categories[pred_idx]: {
+                "corners": box.tolist(),
+                "angle_deg": round(float(rect[2]), 1),
+            }}
+            with open(os.path.join(out_dir, "label.json"), "w") as f:
+                json.dump(label, f)
             print(f"[demo_assets] {stem} -> {out_dir} pred={categories[pred_idx]} "
                   f"prep={prep_s:.2f}s cam={cam_s:.2f}s box={box_s:.2f}s")
 

@@ -13,7 +13,7 @@
 - `test.py`：逻辑与 `cam.py` 相同，但用 `os.walk` 递归遍历 `outputs/` 下的生成图，结果写到每类目录下的 `results/` 子目录。
 - `fastRCNN.py`：一个独立的演示脚本，改用 Faster R-CNN（`fasterrcnn_resnet50_fpn`）+ `EigenCAM` 对当前目录下的 `both.png` 做检测可视化，并包含框内 CAM 归一化函数。它只在内存里生成 PIL 图像，不写盘。
 - `COCO_splite.py`：只定义了两个 COCO 零样本（zero-shot）划分的类别名元组——`CLASSES_65_15` 和 `CLASSES_48_17`，注释标明 `#` 之后是新增（novel）类。
-- `demo_assets.py`：demo 页资产生成器（2026 新增）——与 `cam.py` 同一管线，但每张图产出 `input/heat/box.png` 套件加 `timing.json`（分阶段墙钟）与 `meta.json`（ResNet-101 预测类）；兼容 OpenCV 3.x/4.x。
+- `demo_assets.py`：demo 页资产生成器（2026 新增）——与 `cam.py` 同一管线，但每张图产出 `input/heat/box.png` 套件加 `label.json`（旋转框四角点坐标 + 旋转角）、`timing.json`（分阶段墙钟）与 `meta.json`（ResNet-101 预测类）；兼容 OpenCV 3.x/4.x。
 
 ## 目录结构
 
