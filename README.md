@@ -20,7 +20,7 @@ Each arm is self-contained — `cd` into it, install its own
 | Heat-map source | Stable-Diffusion **cross-attention** (DAAM), text-prompt driven | **Grad-CAM++** on an ImageNet ResNet-101, prediction driven |
 | Generates images? | Yes — SD v1.4 text2img generation + labeling in one script | No — the arm only labels; its images are **dalle-mini generations** (author's 2023-02 wandb experiment), not COCO photos |
 | Domain | The same COCO zero-shot class set as cam2label (side-by-side comparison) + driving long-tail (`motorcyclist`, `truck`) | COCO zero-shot novel classes (65/15, 48/17 splits) — all images dalle-mini-generated |
-| Box type | Axis-aligned bbox → `label.json` (COCO-flavoured) | Rotated box (`cv2.minAreaRect`) drawn on the image |
+| Box type | Axis-aligned bbox → `label.json` (COCO-flavoured) | Rotated box (`cv2.minAreaRect`) → `label.json` (corners + angle), drawn on the image |
 | Compute | CUDA GPU ≥ 8 GB (measured ~4.7 s/image) | CPU is fine (measured ~0.3 s/image) |
 | Entry point | `demo_daam.py` (argparse CLI, `--manifest` batch mode) | `gradcam/cam.py`, `gradcam/test.py`, `gradcam/demo_assets.py` |
 
@@ -74,6 +74,7 @@ prompt variants; threshold-sensitive, fragmented heat maps).
 heat2label/
 ├── daam2label/     # SD cross-attention (DAAM) → text2img generation + boxes
 ├── cam2label/      # Grad-CAM++ → rotated boxes on dalle-mini-generated COCO novel-class images
+├── demo/           # Demo page source (deployed via gh-pages → ranpin.github.io/heat2label/)
 ├── LICENSE         # MIT (covers both arms; the DAAM fork inherits upstream MIT)
 └── README.md
 ```
