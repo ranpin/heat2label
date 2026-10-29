@@ -103,7 +103,7 @@
         <tr><td class="rowh">算力</td><td>CPU 即可（实测 ~0.3s/图 · 3070 宿主机 CPU · 模型加载 ~0.5s 为一次性、不计入单图）</td><td>建议 CUDA GPU ≥ 8GB（实测 ~4.7s/图 · RTX 3070 8GB · 模型加载 ~292s 为一次性、不计入单图 · 生成阶段含 DAAM 交叉注意力追踪开销）</td></tr>
         <tr><td class="rowh">入口</td><td>gradcam/cam.py、gradcam/demo_assets.py</td><td>demo_daam.py（argparse CLI，--manifest 批量）</td></tr>
       </table>
-      <p class="h2l-note">计时口径：单图端到端耗时与硬件统一见上表「算力」行（模型加载为一次性、不计入单图）。Grad-CAM 臂图像本身为 dalle-mini 2023 年生成、生成耗时未记录；DAAM 臂端到端含生成阶段（DAAM 交叉注意力追踪开销）。</p>
+      <p class="h2l-note">计时口径：图题标注分阶段实测值（端到端 = 各阶段之和），硬件与参数统一见上表「关键参数」「算力」两行。Grad-CAM 臂图像本身为 dalle-mini 2023 年生成、生成耗时未记录（输入图题不标计时）；DAAM 臂生成耗时计入「SD 生成场景」阶段。</p>
       <p class="h2l-note">两臂不共享代码，是同一技巧的两种独立实现，并列保留以便对比；产出的每个框都是<strong>伪标注、仍需人工复核</strong>（定位是预标注 / 数据增强助手，非生产级标注器——与 2026 主流开集检测的实测对比与诚实定位详见仓库 README）。本表对比两臂的产出特征，非定量精度基准。顶部「两臂对比」视图把同一张 SD 生成图分别过两臂，呈现自证 × 他证交叉验证与 Grad-CAM 的 ImageNet 闭集词表限制（生成图复用 DAAM 臂已选 seed；Grad-CAM 行为 demo_assets.py 对该图的实测产出）。</p>
     </section>
 
@@ -134,6 +134,7 @@ let arm="gradcam";
 const sel={gradcam:{g:null,c:null},daam:{g:null,c:null},compare:{g:null,c:null}};
 const $=id=>document.getElementById(id);
 const imgPath=(a,g,c,e,k)=>`assets/${a}/${g}/${c}/${e}/${k}.png`;
+const fs=v=>v>=1?v.toFixed(2):v.toFixed(3);
 // label.json：紧凑排版（2026-10-28 用户要求）——坐标数组整体占一行、数字间不留空格
 // （最差 57 字符 ≈ 378px，须与 1024 视口单排行宽预算相容；带空格版 64 字符 ≈ 424px 放不下）；
 // DAAM=轴对齐 [x1,y1,x2,y2] 数组，Grad-CAM=旋转框 {corners: 四角点, angle_deg: 旋转角}
@@ -180,7 +181,7 @@ function render(){
   pills($("groups"),D.groups,S.g,"",id=>{S.g=id;S.c=null;render();});
   pills($("cats"),G.cats,S.c,"sm",id=>{S.c=id;render();});
   // 示例：当前类别的全部示例纵向平铺（不做切换），每例带口径行/管线/label.json
-  // （逐例计时注记与图题计时后缀 2026-10-28 应用户要求删除，计时口径归评测表「算力」行）
+  // （逐例「端到端」汇总注记 2026-10-28 应用户要求删除；图题分阶段计时保留——用户自行加总）
   const exs=$("examples");exs.innerHTML="";
   if(arm==="compare"){
     // 两臂对比：同一张生成图过两条管线（DAAM 自证 / Grad-CAM 他证）
@@ -232,7 +233,10 @@ function render(){
       const d=document.createElement("div");d.className="h2l-stage";
       const im=document.createElement("img");im.src=imgPath(arm,S.g,S.c,E.id,st.key);im.alt=st.cap;
       const c=document.createElement("div");c.className="cap";
-      c.textContent=st.cap;
+      // 图题分阶段计时保留（2026-10-29 用户纠正：要能自己加总端到端）；gradcam 输入图是
+      // 2023 年生成、生成耗时未记录，标 prep 缩放耗时会被误读成生成耗时，故不标
+      const showT=E.timing&&st.t!=null&&!(arm==="gradcam"&&st.key==="input");
+      c.textContent=st.cap+(showT?` · ${fs(E.timing[st.t])}s`:"");
       d.appendChild(im);d.appendChild(c);
       if(i===D.stages.length-1&&E.label){
         const grp=document.createElement("div");grp.className="h2l-stagegroup";
