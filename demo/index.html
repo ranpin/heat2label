@@ -113,6 +113,7 @@
     <section class="ds-section">
       <h2 class="ds-h2">核心方法</h2>
       <p class="ds-muted" style="font-size:14px;margin:0 0 4px">两条臂共享同一条管线，只在「热力图从哪来」和「服务什么域」上不同。</p>
+      <p><b>输入输出</b>：Grad-CAM++ 臂——输入一张已有图像，输出 <code>label.json</code>（类名 → 旋转框四角点 + 旋转角）；DAAM 臂——输入文本 prompt，一趟输出 512×512 生成图 + <code>label.json</code>（类名 → <code>[x1,y1,x2,y2]</code> 轴对齐框）；两臂对比——输入同一张 SD 生成图，输出两臂伪框交叉验证。</p>
       <div class="h2l-flow"><pre>图像 ──► 模型前向 ──► 热力图 ──► 阈值化 ──► 区域 ──► 框
                 │                                    │
        (Grad-CAM++ | SD 交叉注意力)        (轮廓 + minAreaRect | BFS 岛提取)</pre></div>
@@ -121,7 +122,7 @@
         <caption>表 2 · 两臂方法细节</caption>
         <tr><th>臂</th><th>方法细节</th></tr>
         <tr><td class="rowh">Grad-CAM++</td><td>ImageNet 预训练 ResNet-101 → Grad-CAM++ 类激活热力图（targets=预测类）→ 阈值化 → cv2.minAreaRect 拟合旋转框 → 输出 label.json（四角点坐标 + 旋转角）</td></tr>
-        <tr><td class="rowh">DAAM</td><td>SD v1.4 text2img 从简单 prompt 直接生成场景 → 逐词交叉注意力热力图（DAAM）→ 阈值化 + BFS 岛提取 → 目标类的轴对齐伪框 → 输出 COCO 风格 label.json</td></tr>
+        <tr><td class="rowh">DAAM</td><td>SD v1.4 text2img 从简单 prompt 直接生成场景 → 逐词交叉注意力热力图（DAAM）→ 阈值化 + BFS 岛提取 → 目标类的轴对齐伪框 → 输出 label.json（类名 → <code>[x1,y1,x2,y2]</code> 轴对齐框列表）</td></tr>
         <tr><td class="rowh">两臂对比</td><td>同一张 SD 生成图 → DAAM 自证（prompt 关键词注意力）+ Grad-CAM++ 他证（ResNet 预测类），交叉验证生成质量</td></tr>
       </table>
     </section>
