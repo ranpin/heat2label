@@ -91,8 +91,10 @@
     <!-- ============ 评测结果 ============ -->
     <section class="ds-section">
       <h2 class="ds-h2">评测结果</h2>
+      <p class="ds-muted" style="font-size:14px;margin:0 0 4px">测试数据集：无公开基准——两臂图像均为 dalle-mini 2023 年生成图（非真实照片），类别取自 COCO 零样本两划分（65/15 与 48/17，共 15 + 17 个类名作为生成 prompt）；演示区展示 65/15 中预测正确的 8 类、每类 4 例（精选批 2 + outputs 批 2），DAAM 臂另加驾驶长尾类（motorcyclist、truck）。伪框为定性预标注产出、需人工复核，本页不提供定量标注精度指标。</p>
       <p class="ds-muted" style="font-size:14px;margin:0 0 4px">两条臂是同一思路（热力图 → 伪框）的两种独立实现，下表对比各自的热力图来源、产出形态与适用域。</p>
       <table class="h2l-table">
+        <caption>表 1 · 两臂的热力图来源、产出形态与部署口径对比</caption>
         <tr><th></th><th>Grad-CAM++（cam2label）</th><th>DAAM（daam2label）</th></tr>
         <tr><td class="rowh">热力图来源</td><td>ImageNet 预训练 ResNet-101 上的 <strong>Grad-CAM++</strong>，预测驱动（targets=预测类）</td><td>Stable Diffusion <strong>交叉注意力</strong>（DAAM），文本 prompt 驱动</td></tr>
         <tr><td class="rowh">关键参数</td><td>ResNet-101（torchvision IMAGENET1K_V1 权重）· 输入 224×224 · Grad-CAM++ 目标层 layer4[-1] · 热力图二值化阈值 170 · targets=预测类（top-1）</td><td>CompVis/stable-diffusion-v1-4（fp16 + attention slicing）· 采样 30 步 · 生成 512×512 · guidance scale 7.5（diffusers 默认）· DAAM 逐词交叉注意力热力图</td></tr>
@@ -114,7 +116,9 @@
       <div class="h2l-flow"><pre>图像 ──► 模型前向 ──► 热力图 ──► 阈值化 ──► 区域 ──► 框
                 │                                    │
        (Grad-CAM++ | SD 交叉注意力)        (轮廓 + minAreaRect | BFS 岛提取)</pre></div>
+      <p class="ds-figcap">图 1 · 两臂共享管线：图像 → 模型前向 → 热力图 → 阈值化 → 区域 → 框（两臂只在热力图来源与框拟合方式上不同）</p>
       <table class="h2l-table">
+        <caption>表 2 · 两臂方法细节</caption>
         <tr><th>臂</th><th>方法细节</th></tr>
         <tr><td class="rowh">Grad-CAM++</td><td>ImageNet 预训练 ResNet-101 → Grad-CAM++ 类激活热力图（targets=预测类）→ 阈值化 → cv2.minAreaRect 拟合旋转框 → 输出 label.json（四角点坐标 + 旋转角）</td></tr>
         <tr><td class="rowh">DAAM</td><td>SD v1.4 text2img 从简单 prompt 直接生成场景 → 逐词交叉注意力热力图（DAAM）→ 阈值化 + BFS 岛提取 → 目标类的轴对齐伪框 → 输出 COCO 风格 label.json</td></tr>
