@@ -1,140 +1,101 @@
 # heat2label
 
-**🔗 Live demo — https://ranpin.github.io/heat2label/** · pick the Grad-CAM++
-or DAAM arm (or the side-by-side compare view) and walk the full heat-map →
-pseudo-box pipeline (precomputed; both models are too heavy to run in-browser).
+> 两条「热力图 → 伪框标注」实验：把模型内部的热力图阈值化、提取连通区域、输出包围框，从而不用手动画框就能给图像打（预）标注。
 
-Two experiments on the same idea: **turn a model's internal heat map into
-pseudo bounding-box labels**, so images can be (pre-)annotated without
-hand-drawing every box. Both arms threshold an activation map, extract
-regions, and emit boxes — they differ only in *where the heat map comes
-from* and *what domain it serves*.
+> 🎬 **在线 Demo**：<https://ranpin.github.io/heat2label/> —— Grad-CAM++ 臂 / DAAM 臂 / 两臂对比三种视图，全部示例预计算（两个模型都太重，无法在浏览器内运行）。
 
-**Pipeline at a glance** — the `cat` category through both arms (input → heat map → pseudo-box):
+## 核心结果
+
+两臂共享同一条管线，只在「热力图从哪来」和「服务什么域」上不同。下图是 `cat` 类别分别过两条臂（输入 → 热力图 → 伪框）：
 
 <table>
   <tr>
     <th></th>
-    <th>Input</th>
-    <th>Heat map</th>
-    <th>Pseudo-box</th>
+    <th>输入</th>
+    <th>热力图</th>
+    <th>伪框</th>
   </tr>
   <tr>
-    <td><b>Grad-CAM++</b><br><sub>ResNet-101 CAM · prediction-driven</sub></td>
-    <td><img src="https://ranpin.github.io/heat2label/assets/gradcam/65_15/cat/1/input.png" width="200" alt="dalle-mini generated input"></td>
-    <td><img src="https://ranpin.github.io/heat2label/assets/gradcam/65_15/cat/1/heat.png" width="200" alt="Grad-CAM++ heat map"></td>
-    <td><img src="https://ranpin.github.io/heat2label/assets/gradcam/65_15/cat/1/box.png" width="200" alt="rotated pseudo-box"></td>
+    <td><b>Grad-CAM++</b><br><sub>ResNet-101 CAM · 预测类驱动</sub></td>
+    <td><img src="https://ranpin.github.io/heat2label/assets/gradcam/65_15/cat/1/input.png" width="200" alt="dalle-mini 生成输入图"></td>
+    <td><img src="https://ranpin.github.io/heat2label/assets/gradcam/65_15/cat/1/heat.png" width="200" alt="Grad-CAM++ 热力图"></td>
+    <td><img src="https://ranpin.github.io/heat2label/assets/gradcam/65_15/cat/1/box.png" width="200" alt="旋转伪框"></td>
   </tr>
   <tr>
-    <td><b>DAAM</b><br><sub>SD v1.4 cross-attention · prompt-driven</sub></td>
-    <td><img src="https://ranpin.github.io/heat2label/assets/daam/65_15/cat/1/img.png" width="200" alt="SD v1.4 generated input"></td>
-    <td><img src="https://ranpin.github.io/heat2label/assets/daam/65_15/cat/1/heat.png" width="200" alt="DAAM heat map"></td>
-    <td><img src="https://ranpin.github.io/heat2label/assets/daam/65_15/cat/1/box.png" width="200" alt="axis-aligned pseudo-box"></td>
+    <td><b>DAAM</b><br><sub>SD v1.4 交叉注意力 · prompt 驱动</sub></td>
+    <td><img src="https://ranpin.github.io/heat2label/assets/daam/65_15/cat/1/img.png" width="200" alt="SD v1.4 生成输入图"></td>
+    <td><img src="https://ranpin.github.io/heat2label/assets/daam/65_15/cat/1/heat.png" width="200" alt="DAAM 热力图"></td>
+    <td><img src="https://ranpin.github.io/heat2label/assets/daam/65_15/cat/1/box.png" width="200" alt="轴对齐伪框"></td>
   </tr>
 </table>
 
-<sub>Inputs: dalle-mini generation (Grad-CAM arm, 2023) vs SD v1.4 text2img (DAAM arm). Every box is a pseudo-label — see [Status & positioning](#status--positioning).</sub>
+<sub>输入来源：Grad-CAM++ 臂用 dalle-mini 生成图（2023），DAAM 臂用 SD v1.4 text2img 即时生成。<b>所有框都是伪标签、需人工复核</b>——见下方「定位与诚实边界」。</sub>
 
-This repo is the merger of two sibling projects created on the same day
-(2023-03-30): [`daam2label`](daam2label/) and [`cam2label`](cam2label/).
-Each arm is self-contained — `cd` into it, install its own
-`requirements.txt`, and run.
-
-| | [`daam2label/`](daam2label/) | [`cam2label/`](cam2label/) |
+| | [`daam2label/`](daam2label/)（DAAM 臂） | [`cam2label/`](cam2label/)（Grad-CAM++ 臂） |
 |---|---|---|
-| Heat-map source | Stable-Diffusion **cross-attention** (DAAM), text-prompt driven | **Grad-CAM++** on an ImageNet ResNet-101, prediction driven |
-| Generates images? | Yes — SD v1.4 text2img generation + labeling in one script | No — the arm only labels; its images are **dalle-mini generations** (author's 2023-02 wandb experiment), not COCO photos |
-| Domain | The same COCO zero-shot class set as cam2label (side-by-side comparison) + driving long-tail (`motorcyclist`, `truck`) | COCO zero-shot novel classes (65/15, 48/17 splits) — all images dalle-mini-generated |
-| Box type | Axis-aligned bbox → `label.json` (COCO-flavoured) | Rotated box (`cv2.minAreaRect`) → `label.json` (corners + angle), drawn on the image |
-| Compute | CUDA GPU ≥ 8 GB (measured ~4.7 s/image) | CPU is fine (measured ~0.3 s/image) |
-| Entry point | `demo_daam.py` (argparse CLI, `--manifest` batch mode) | `gradcam/cam.py`, `gradcam/test.py`, `gradcam/demo_assets.py` |
+| 热力图来源 | Stable-Diffusion **交叉注意力**（DAAM），文本 prompt 驱动 | ImageNet ResNet-101 上的 **Grad-CAM++**，预测类驱动 |
+| 是否生成图像 | 是——SD v1.4 text2img 生成 + 标注一个脚本完成 | 否——本臂只标注；图像是 **dalle-mini 生成图**（作者 2023-02 的 wandb 实验），并非 COCO 原图 |
+| 域 | 与 Grad-CAM 臂同一套 COCO 零样本类别（并排对比）+ 驾驶长尾（`motorcyclist`、`truck`） | COCO 零样本 novel 类（65/15、48/17 两个划分）——图像均为 dalle-mini 生成 |
+| 框类型 | 轴对齐框 → `label.json`（类名 → `[x1,y1,x2,y2]` 列表） | 旋转框（`cv2.minAreaRect`）→ `label.json`（四角点 + 角度），画回图上 |
+| 算力 | CUDA GPU ≥ 8 GB（实测 ~4.7 s/图） | CPU 即可（实测 ~0.3 s/图） |
+| 入口 | `demo_daam.py`（argparse CLI，`--manifest` 批量模式） | `gradcam/cam.py`、`gradcam/test.py`、`gradcam/demo_assets.py` |
 
-**Shared pipeline**
+共享管线：
 
 ```
-image ──► model forward ──► heat map ──► threshold ──► regions ──► boxes
-                 │                                            │
-        (SD cross-attn | Grad-CAM++)        (BFS islands | contours + minAreaRect)
+图像 ──► 模型前向 ──► 热力图 ──► 阈值化 ──► 连通区域 ──► 框
 ```
 
-The two arms share no code — they are independent implementations of the
-same trick, kept side by side for comparison. Both are *generation →
-annotation* pipelines from different eras: cam2label labels dalle-mini
-generations (2023), daam2label generates with SD v1.4 and labels in one
-pass (2023 method, reproduced 2026).
+两臂只在两处不同：**热力图来源**（SD 交叉注意力 | Grad-CAM++）与**区域提取方式**（BFS 岛 | 轮廓 + `minAreaRect`）。两条臂不共享代码——是同一思路的两个独立实现，并排放置以便对比；都属于「生成 → 标注」管线：cam2label 标注 dalle-mini 生成图（2023），daam2label 用 SD v1.4 一边生成一边标注（2023 的方法，2026 年复现）。本仓是 2023-03-30 同日创建的两个兄弟项目的合并；每臂自包含——`cd` 进去、装它自己的 `requirements.txt` 即可跑。
 
-## Status & positioning
+## 定位与诚实边界
 
-2023 research demos, maintained for reference — **pre-labeling /
-data-augmentation helpers, not production annotators**; every box is a
-pseudo-label that still needs human review.
+2023 年的研究 demo，留作参考——**是预标注 / 数据增强的辅助工具，不是生产级标注器**；所有框都是伪标签，仍需人工复核。
 
-**As an auto-labeler this approach has been superseded by open-set
-detection.** Measured on an RTX 3070 (SD v1.4 fp16, 512×512, 30 steps), the
-DAAM arm takes ~4.7 s per image — and it can only label images it *generates
-itself*. Modern open-set detectors label *your existing* images far faster
-and cleaner: YOLO-World runs at 52 FPS on a V100 (35.4 LVIS AP), and
-Grounding DINO 1.5 Edge exceeds 10 FPS on a Jetson Orin NX (36.2 LVIS AP).
-Box stability is this approach's weak point too — across the 568-seed,
-31-keyword generation campaign behind the demo, only ~26% of generations
-yielded a single clean box, and the rate is strongly category-dependent
-(75% for `scissors` vs ~5% for `cat`/`couch` even after 64 seeds each with
-prompt variants; threshold-sensitive, fragmented heat maps).
+**作为自动标注器，这条路线已被开集检测取代。** DAAM 臂在 RTX 3070 上实测 ~4.7 s/图（SD v1.4 fp16，512×512，30 步），而且只能标注它**自己生成**的图；现代开集检测器能更快、更干净地标注**你已有的**图：YOLO-World 在 V100 上 52 FPS（35.4 LVIS AP），Grounding DINO 1.5 Edge 在 Jetson Orin NX 上 >10 FPS（36.2 LVIS AP）。框的稳定性也是本路线的弱项——demo 背后那次 568 种子 × 31 关键词的生成里，只有 ~26% 的生成图能给出单个干净的框，且强烈依赖类别（`scissors` 75% vs `cat`/`couch` ~5%，即便各跑 64 种子 + prompt 变体；对阈值敏感、热力图碎裂）。
 
-**What still has reference value today:**
+**今天仍有参考价值的两点：**
 
-- **Interpretability** — DAAM exposes token-level attention provenance:
-  which pixels the prompt token attended to at each denoising step.
-  Detectors give boxes without the "why".
-- **Generation–annotation consistency** — when you are already running SD
-  for long-tail data augmentation, the pseudo-labels are nearly free
-  (+~0.1 s per image, ~2%: attention is accumulated as a by-product of
-  generation; heat-map + box extraction measured at 0.01 s + ≤0.2 s), giving
-  a built-in check that the prompted concept was actually generated — where,
-  and how many times.
+- **可解释性**——DAAM 暴露 token 级注意力来源：每个 prompt token 在每一步去噪时关注了哪些像素。检测器只给框，不给「为什么」。
+- **生成–标注一致性**——如果你本来就在跑 SD 做长尾数据增强，伪标签几乎是顺带的（+~0.1 s/图，约 2%：注意力是生成过程中累积的副产品；热力图 + 框提取实测 0.01 s + ≤0.2 s），并且内置了一道校验：prompt 里的概念到底有没有被生成出来、生成在哪、生成了几个。
 
-## 2026 retrospective
+2026 年重审（合并、复现、做 demo 页）还发现了来源考古、依赖自相矛盾、~14% 复现漂移、OpenCV 4.x 崩溃等问题，完整记录见 [docs/RETROSPECTIVE.md](docs/RETROSPECTIVE.md)。
 
-The repo was re-audited in 2026 (merge, reproduction, demo page). What the
-audit found:
+## 快速开始
 
-- **Provenance** — every image in `cam2label/` (`imgs65_15/`, `imgs48_17/`,
-  `outputs/`) is a **dalle-mini generation** from the author's 2023-02 wandb
-  experiment, not a COCO photo; "65/15" and "48/17" are COCO zero-shot
-  *class-split* names. Decisive evidence: the commented-out wandb download
-  code at the top of the original `cam.py`.
-- **Dependencies** — `daam2label/`'s original pin (`diffusers>=0.19,<0.25`)
-  contradicted the vendored DAAM fork, which monkey-patches pre-0.15
-  diffusers APIs: the arm only runs on `diffusers==0.9.0`, and
-  `demo_daam.py`'s `image=` call had to revert to `init_image=`. The 2023
-  pin was unrunnable as written; fixed.
-- **Reproducibility drift** — re-running the same image through the same
-  algorithm in 2026 yields boxes differing from the 2023 outputs by ~14% of
-  raw pixels (torchvision changed its `resize` antialias default). The demo
-  therefore re-runs each pipeline end-to-end in one pass instead of mixing
-  2023 boxes with 2026 heat maps.
-- **Bugs & gaps** — `cam.py` crashed on OpenCV 4.x (`findContours` 3-value
-  unpack); the Grad-CAM arm drew rotated boxes but never exported
-  coordinates (`label.json` export added in 2026).
+两臂各自独立安装运行（细节见各臂 README）：
 
-What still holds: the core trick (heat map → threshold → regions → boxes)
-reproduces cleanly on both arms, and the positioning above — superseded as
-an auto-labeler, still interesting for interpretability and
-generation–annotation consistency.
+**Grad-CAM++ 臂（cam2label，CPU 即可，~0.3 s/图）：**
 
-## Layout
+```bash
+cd cam2label/gradcam
+pip install -r requirements.txt
+python cam.py                    # 默认处理 imgs65_15/ → results65_15/（旋转框标注）
+```
+
+**DAAM 臂（daam2label，需 GPU ≥8GB，~4.7 s/图）：**
+
+```bash
+cd daam2label
+pip install -r requirements.txt          # 钉死 diffusers==0.9.0，需 Python ≤3.11
+python demo_daam.py --prompt "motorcyclist on road" --keyword "motorcyclist"
+```
+
+⚠️ DAAM 臂依赖苛刻：vendored 的 DAAM fork monkey-patch 了 diffusers 0.15 之前的旧注意力 API，**只能在 `diffusers==0.9.0` 上跑**（原 2023 的 `requirements.txt` pin `>=0.19,<0.25` 自相矛盾、跑不通，已修）；又因 diffusers 0.9.0 import 了 Python 3.12 已移除的 `distutils`，故需 **Python ≤3.11**。详见 [docs/RETROSPECTIVE.md](docs/RETROSPECTIVE.md)。
+
+## 仓库结构与文档导航
 
 ```
 heat2label/
-├── daam2label/     # SD cross-attention (DAAM) → text2img generation + boxes
-├── cam2label/      # Grad-CAM++ → rotated boxes on dalle-mini-generated COCO novel-class images
-├── demo/           # Demo page source (deployed via gh-pages → ranpin.github.io/heat2label/)
-├── LICENSE         # MIT (covers both arms; the DAAM fork inherits upstream MIT)
+├── daam2label/            # DAAM 臂：SD 交叉注意力 → text2img 生成 + 标注（详见其 README.md）
+├── cam2label/             # Grad-CAM++ 臂：在 dalle-mini 生成图上产旋转框（详见其 README.md）
+├── demo/                  # demo 页源码（经 gh-pages 部署 → ranpin.github.io/heat2label/）
+├── docs/
+│   └── RETROSPECTIVE.md   # 2026 重审：来源考古 / 依赖矛盾 / 复现漂移 / bug 记录
+├── LICENSE                # MIT（覆盖两臂；DAAM fork 继承上游 MIT）
 └── README.md
 ```
 
-## License
+## 许可与致谢
 
-MIT — see [`LICENSE`](LICENSE). The `daam2label/` arm bundles a modified
-copy of [`castorini/daam`](https://github.com/castorini/daam) (MIT); see
-[`daam2label/NOTICE`](daam2label/NOTICE).
+MIT——见 [`LICENSE`](LICENSE)。`daam2label/` 臂内含 [`castorini/daam`](https://github.com/castorini/daam)（MIT）的修改副本，见 [`daam2label/NOTICE`](daam2label/NOTICE)。仓库内所有图像均为 dalle-mini 与 Stable Diffusion v1.4 的文本生成图，不含 COCO 原图（「65/15」「48/17」只是 COCO 零样本的类别划分名）。
