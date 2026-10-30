@@ -29,7 +29,7 @@
   </tr>
 </table>
 
-<sub>输入来源：Grad-CAM++ 臂用 dalle-mini 生成图（2023），DAAM 臂用 SD v1.4 text2img 即时生成。<b>所有框都是伪标签、需人工复核</b>——见下方「定位与诚实边界」。</sub>
+<sub>输入来源：Grad-CAM++ 臂用 dalle-mini 生成图（2023），DAAM 臂用 SD v1.4 text2img 即时生成。<b>所有框都是伪标签、需人工复核</b>；定位与诚实边界见 <a href="docs/RETROSPECTIVE.md">docs/RETROSPECTIVE.md</a>。</sub>
 
 | | [`daam2label/`](daam2label/)（DAAM 臂） | [`cam2label/`](cam2label/)（Grad-CAM++ 臂） |
 |---|---|---|
@@ -46,20 +46,7 @@
 图像 ──► 模型前向 ──► 热力图 ──► 阈值化 ──► 连通区域 ──► 框
 ```
 
-两臂只在两处不同：**热力图来源**（SD 交叉注意力 | Grad-CAM++）与**区域提取方式**（BFS 岛 | 轮廓 + `minAreaRect`）。两条臂不共享代码——是同一思路的两个独立实现，并排放置以便对比；都属于「生成 → 标注」管线：cam2label 标注 dalle-mini 生成图（2023），daam2label 用 SD v1.4 一边生成一边标注（2023 的方法，2026 年复现）。本仓是 2023-03-30 同日创建的两个兄弟项目的合并；每臂自包含——`cd` 进去、装它自己的 `requirements.txt` 即可跑。
-
-## 定位与诚实边界
-
-2023 年的研究 demo，留作参考——**是预标注 / 数据增强的辅助工具，不是生产级标注器**；所有框都是伪标签，仍需人工复核。
-
-**作为自动标注器，这条路线已被开集检测取代。** DAAM 臂在 RTX 3070 上实测 ~4.7 s/图（SD v1.4 fp16，512×512，30 步），而且只能标注它**自己生成**的图；现代开集检测器能更快、更干净地标注**你已有的**图：YOLO-World 在 V100 上 52 FPS（35.4 LVIS AP），Grounding DINO 1.5 Edge 在 Jetson Orin NX 上 >10 FPS（36.2 LVIS AP）。框的稳定性也是本路线的弱项——demo 背后那次 568 种子 × 31 关键词的生成里，只有 ~26% 的生成图能给出单个干净的框，且强烈依赖类别（`scissors` 75% vs `cat`/`couch` ~5%，即便各跑 64 种子 + prompt 变体；对阈值敏感、热力图碎裂）。
-
-**今天仍有参考价值的两点：**
-
-- **可解释性**——DAAM 暴露 token 级注意力来源：每个 prompt token 在每一步去噪时关注了哪些像素。检测器只给框，不给「为什么」。
-- **生成–标注一致性**——如果你本来就在跑 SD 做长尾数据增强，伪标签几乎是顺带的（+~0.1 s/图，约 2%：注意力是生成过程中累积的副产品；热力图 + 框提取实测 0.01 s + ≤0.2 s），并且内置了一道校验：prompt 里的概念到底有没有被生成出来、生成在哪、生成了几个。
-
-2026 年重审（合并、复现、做 demo 页）还发现了来源考古、依赖自相矛盾、~14% 复现漂移、OpenCV 4.x 崩溃等问题，完整记录见 [docs/RETROSPECTIVE.md](docs/RETROSPECTIVE.md)。
+两臂只在两处不同：**热力图来源**（SD 交叉注意力 | Grad-CAM++）与**区域提取方式**（BFS 岛 | 轮廓 + `minAreaRect`）。两条臂不共享代码——是同一思路的两个独立实现，并排放置以便对比；都属于「生成 → 标注」管线：cam2label 标注 dalle-mini 生成图（2023），daam2label 用 SD v1.4 一边生成一边标注（2023 的方法，2026 年复现）。本仓是 2023-03-30 同日创建的两个兄弟项目的合并；每臂自包含——`cd` 进去、装它自己的 `requirements.txt` 即可跑。项目定位、诚实边界与 2026 重审记录见 [docs/RETROSPECTIVE.md](docs/RETROSPECTIVE.md)。
 
 ## 快速开始
 
@@ -91,7 +78,7 @@ heat2label/
 ├── cam2label/             # Grad-CAM++ 臂：在 dalle-mini 生成图上产旋转框（详见其 README.md）
 ├── demo/                  # demo 页源码（经 gh-pages 部署 → ranpin.github.io/heat2label/）
 ├── docs/
-│   └── RETROSPECTIVE.md   # 2026 重审：来源考古 / 依赖矛盾 / 复现漂移 / bug 记录
+│   └── RETROSPECTIVE.md   # 定位与诚实边界 + 2026 重审（来源考古 / 依赖矛盾 / 复现漂移 / bug）
 ├── LICENSE                # MIT（覆盖两臂；DAAM fork 继承上游 MIT）
 └── README.md
 ```
