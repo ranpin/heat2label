@@ -46,14 +46,10 @@
   .h2l-json .k{color:var(--ds-accent-strong);font-weight:600}
   .h2l-stagegroup{display:flex;align-items:flex-start;gap:8px}
   .h2l-stagegroup .h2l-json{max-width:410px;margin:0;font-size:11px;line-height:1.45;padding:8px}
-  .h2l-table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;background:var(--ds-panel);
-    border:1px solid var(--ds-border);border-radius:10px;overflow:hidden}
-  .h2l-table th,.h2l-table td{padding:9px 13px;border:1px solid var(--ds-border);text-align:left;vertical-align:top;line-height:1.6}
-  .h2l-table th{background:var(--ds-code-bg);color:var(--ds-muted);font-weight:600}
-  .h2l-table td.rowh{color:var(--ds-muted);font-weight:600;white-space:nowrap;background:var(--ds-code-bg)}
-  .h2l-flow{background:var(--ds-code-bg);border:1px solid var(--ds-border);border-radius:10px;padding:18px;overflow-x:auto;margin:14px 0}
-  .h2l-flow pre{margin:0;font-family:var(--ds-mono);font-size:12.5px;line-height:1.7;color:var(--ds-text);background:none;border:none;padding:0}
-  .h2l-note{font-size:13px;color:var(--ds-faint);margin-top:10px;line-height:1.65}
+  /* 表格/插图已迁外壳：三线表 .ds-table+.ds-tablewrap、科研插图 .ds-dg+.ds-dgwrap（demo-shell.css） */
+  .sec-note{color:var(--ds-muted);font-size:13.5px;line-height:1.6;margin:0 0 16px}
+  .sec-note.tight{margin-bottom:6px}
+  .h2l-note{font-size:12.5px;color:var(--ds-muted);margin-top:10px;line-height:1.65}
   @media(max-width:680px){
     .h2l-stage{width:auto}
     .h2l-stage img{width:min(86vw,300px);height:auto;aspect-ratio:170/111}
@@ -61,7 +57,6 @@
     .h2l-pipeline{gap:16px}
     .h2l-stagegroup{flex-direction:column}
     .h2l-stagegroup .h2l-json{max-width:min(86vw,300px)}
-    .h2l-table{display:block;overflow-x:auto}
   }
 </style>
 </head>
@@ -81,7 +76,7 @@
     <!-- ============ 演示 ============ -->
     <section class="ds-section">
       <h2 class="ds-h2">演示</h2>
-      <p class="ds-muted" style="font-size:14px;margin:0 0 4px">预计算演示 · 两个模型都太重、无法在浏览器内运行 · 复现见仓库。两条臂是两个年代的「生成 → 标注」管道：Grad-CAM++ 臂标的是 2023 年 dalle-mini 生成图，DAAM 臂是 SD v1.4 生成 + 打框一体；「两臂对比」再把同一张 SD 生成图分别过两臂（自证 × 他证交叉验证）。选择划分与类别，每类示例并列展示，各走完整「热力图 → 伪框」管线。</p>
+      <p class="sec-note tight">预计算演示 · 两个模型都太重、无法在浏览器内运行 · 复现见仓库。两条臂是两个年代的「生成 → 标注」管道：Grad-CAM++ 臂标的是 2023 年 dalle-mini 生成图，DAAM 臂是 SD v1.4 生成 + 打框一体；「两臂对比」再把同一张 SD 生成图分别过两臂（自证 × 他证交叉验证）。选择划分与类别，每类示例并列展示，各走完整「热力图 → 伪框」管线。</p>
       <nav class="h2l-tabs" id="tabs"></nav>
       <div class="h2l-samples" id="groups"></div>
       <div class="h2l-samples tight" id="cats"></div>
@@ -91,9 +86,10 @@
     <!-- ============ 评测结果 ============ -->
     <section class="ds-section">
       <h2 class="ds-h2">评测结果</h2>
-      <p class="ds-muted" style="font-size:14px;margin:0 0 4px">测试数据集：无公开基准——两臂图像均为 dalle-mini 2023 年生成图（非真实照片），类别取自 COCO 零样本两划分（65/15 与 48/17，共 15 + 17 个类名作为生成 prompt）；演示区展示 65/15 中预测正确的 8 类、每类 4 例（精选批 2 + outputs 批 2），DAAM 臂另加驾驶长尾类（motorcyclist、truck）。伪框为定性预标注产出、需人工复核，本页不提供定量标注精度指标。</p>
-      <p class="ds-muted" style="font-size:14px;margin:0 0 4px">两条臂是同一思路（热力图 → 伪框）的两种独立实现，下表对比各自的热力图来源、产出形态与适用域。</p>
-      <table class="h2l-table">
+      <p class="sec-note tight">测试数据集：无公开基准——两臂图像均为 dalle-mini 2023 年生成图（非真实照片），类别取自 COCO 零样本两划分（65/15 与 48/17，共 15 + 17 个类名作为生成 prompt）；演示区展示 65/15 中预测正确的 8 类、每类 4 例（精选批 2 + outputs 批 2），DAAM 臂另加驾驶长尾类（motorcyclist、truck）。伪框为定性预标注产出、需人工复核，本页不提供定量标注精度指标。</p>
+      <p class="sec-note tight">两条臂是同一思路（热力图 → 伪框）的两种独立实现，下表对比各自的热力图来源、产出形态与适用域。</p>
+      <div class="ds-tablewrap">
+      <table class="ds-table">
         <caption>表 1 · 两臂的热力图来源、产出形态与部署口径对比</caption>
         <tr><th></th><th>Grad-CAM++（cam2label）</th><th>DAAM（daam2label）</th></tr>
         <tr><td class="rowh">热力图来源</td><td>ImageNet 预训练 ResNet-101 上的 <strong>Grad-CAM++</strong>，预测驱动（targets=预测类）</td><td>Stable Diffusion <strong>交叉注意力</strong>（DAAM），文本 prompt 驱动</td></tr>
@@ -105,6 +101,7 @@
         <tr><td class="rowh">算力</td><td>CPU 即可（实测 ~0.3s/图 · 3070 宿主机 CPU · 模型加载 ~0.5s 为一次性、不计入单图）</td><td>建议 CUDA GPU ≥ 8GB（实测 ~4.7s/图 · RTX 3070 8GB · 模型加载 ~292s 为一次性、不计入单图 · 生成阶段含 DAAM 交叉注意力追踪开销）</td></tr>
         <tr><td class="rowh">入口</td><td>gradcam/cam.py、gradcam/demo_assets.py</td><td>demo_daam.py（argparse CLI，--manifest 批量）</td></tr>
       </table>
+      </div>
       <p class="h2l-note">计时口径：图题标注分阶段实测值（端到端 = 各阶段之和），硬件与参数统一见上表「关键参数」「算力」两行。Grad-CAM 臂图像本身为 dalle-mini 2023 年生成、生成耗时未记录（输入图题不标计时）；DAAM 臂生成耗时计入「SD 生成场景」阶段。</p>
       <p class="h2l-note">两臂不共享代码，是同一技巧的两种独立实现，并列保留以便对比；产出的每个框都是<strong>伪标注、仍需人工复核</strong>（定位是预标注 / 数据增强助手，非生产级标注器——与 2026 主流开集检测的实测对比与诚实定位详见仓库 README）。本表对比两臂的产出特征，非定量精度基准。顶部「两臂对比」视图把同一张 SD 生成图分别过两臂，呈现自证 × 他证交叉验证与 Grad-CAM 的 ImageNet 闭集词表限制（生成图复用 DAAM 臂已选 seed；Grad-CAM 行为 demo_assets.py 对该图的实测产出）。</p>
     </section>
@@ -112,19 +109,60 @@
     <!-- ============ 核心方法 ============ -->
     <section class="ds-section">
       <h2 class="ds-h2">核心方法</h2>
-      <p class="ds-muted" style="font-size:14px;margin:0 0 4px">两条臂共享同一条管线，只在「热力图从哪来」和「服务什么域」上不同。</p>
+      <p class="sec-note tight">两条臂共享同一条管线，只在「热力图从哪来」和「服务什么域」上不同。</p>
       <p><b>输入输出</b>：Grad-CAM++ 臂——输入一张已有图像，输出 <code>label.json</code>（类名 → 旋转框四角点 + 旋转角）；DAAM 臂——输入文本 prompt，一趟输出 512×512 生成图 + <code>label.json</code>（类名 → <code>[x1,y1,x2,y2]</code> 轴对齐框）；两臂对比——输入同一张 SD 生成图，输出两臂伪框交叉验证。</p>
-      <div class="h2l-flow"><pre>图像 ──► 模型前向 ──► 热力图 ──► 阈值化 ──► 区域 ──► 框
-                │                                    │
-       (Grad-CAM++ | SD 交叉注意力)        (轮廓 + minAreaRect | BFS 岛提取)</pre></div>
+      <div class="ds-dgwrap">
+        <svg class="ds-dg" viewBox="0 0 980 210" role="img" aria-label="两臂共享管线：图像 → 模型前向 → 热力图 → 阈值化 → 区域 → label.json；两组标签分别标注两臂在热力图来源与框拟合方式上的差异">
+          <defs>
+            <marker id="h2l-dg-arr" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+              <polygon points="0 0, 9 3.5, 0 7" fill="var(--ds-faint)"/>
+            </marker>
+          </defs>
+          <!-- 注释组 1：热力图来源（两臂差异点 ①） -->
+          <text class="dg-note" x="334" y="20" text-anchor="middle">热力图来源</text>
+          <rect x="198" y="28" width="272" height="30" rx="15" fill="var(--ds-warn-soft)" stroke="var(--ds-warn-ring)"/>
+          <text class="dg-tag" x="334" y="47" text-anchor="middle" fill="var(--ds-warn)">Grad-CAM++ 臂 · ResNet-101 · targets=预测类</text>
+          <rect x="194" y="66" width="280" height="30" rx="15" fill="var(--ds-accent-soft)" stroke="var(--ds-accent-ring)"/>
+          <text class="dg-tag" x="334" y="85" text-anchor="middle" fill="var(--ds-accent-strong)">DAAM 臂 · SD v1.4 逐词交叉注意力 · prompt 驱动</text>
+          <line class="dg-edge dg-dash" x1="334" y1="100" x2="334" y2="136" marker-end="url(#h2l-dg-arr)"/>
+          <!-- 注释组 2：框拟合方式（两臂差异点 ②） -->
+          <text class="dg-note" x="762" y="20" text-anchor="middle">框拟合方式</text>
+          <rect x="628" y="28" width="268" height="30" rx="15" fill="var(--ds-warn-soft)" stroke="var(--ds-warn-ring)"/>
+          <text class="dg-tag" x="762" y="47" text-anchor="middle" fill="var(--ds-warn)">Grad-CAM++ 臂 · 轮廓 + minAreaRect → 旋转框</text>
+          <rect x="621" y="66" width="282" height="30" rx="15" fill="var(--ds-accent-soft)" stroke="var(--ds-accent-ring)"/>
+          <text class="dg-tag" x="762" y="85" text-anchor="middle" fill="var(--ds-accent-strong)">DAAM 臂 · BFS 岛提取 → 轴对齐框 [x1,y1,x2,y2]</text>
+          <line class="dg-edge dg-dash" x1="762" y1="100" x2="762" y2="136" marker-end="url(#h2l-dg-arr)"/>
+          <!-- 共享主链：图像 → 模型前向 → 热力图 → 阈值化 → 区域 → label.json -->
+          <line class="dg-edge" x1="158" y1="142" x2="198" y2="142" marker-end="url(#h2l-dg-arr)"/>
+          <line class="dg-edge" x1="314" y1="142" x2="354" y2="142" marker-end="url(#h2l-dg-arr)"/>
+          <line class="dg-edge" x1="460" y1="142" x2="500" y2="142" marker-end="url(#h2l-dg-arr)"/>
+          <line class="dg-edge" x1="606" y1="142" x2="646" y2="142" marker-end="url(#h2l-dg-arr)"/>
+          <line class="dg-edge" x1="742" y1="142" x2="782" y2="142" marker-end="url(#h2l-dg-arr)"/>
+          <rect x="65" y="112" width="90" height="60" rx="8" fill="var(--ds-code-bg)" stroke="var(--ds-faint)" stroke-width="1.4"/>
+          <text class="dg-name" x="110" y="147" text-anchor="middle">图像</text>
+          <rect x="201" y="112" width="110" height="60" rx="8" fill="var(--ds-code-bg)" stroke="var(--ds-faint)" stroke-width="1.4"/>
+          <text class="dg-name" x="256" y="147" text-anchor="middle">模型前向</text>
+          <rect x="357" y="112" width="100" height="60" rx="8" fill="var(--ds-code-bg)" stroke="var(--ds-faint)" stroke-width="1.4"/>
+          <text class="dg-name" x="407" y="147" text-anchor="middle">热力图</text>
+          <rect x="503" y="112" width="100" height="60" rx="8" fill="var(--ds-code-bg)" stroke="var(--ds-faint)" stroke-width="1.4"/>
+          <text class="dg-name" x="553" y="147" text-anchor="middle">阈值化</text>
+          <rect x="649" y="112" width="90" height="60" rx="8" fill="var(--ds-code-bg)" stroke="var(--ds-faint)" stroke-width="1.4"/>
+          <text class="dg-name" x="694" y="147" text-anchor="middle">区域</text>
+          <rect x="785" y="112" width="130" height="60" rx="8" fill="var(--ds-ok-soft)" stroke="var(--ds-ok)" stroke-width="1.4"/>
+          <text class="dg-name" x="850" y="139" text-anchor="middle">label.json</text>
+          <text class="dg-sub" x="850" y="157" text-anchor="middle">COCO 风格伪框</text>
+        </svg>
+      </div>
       <p class="ds-figcap">图 1 · 两臂共享管线：图像 → 模型前向 → 热力图 → 阈值化 → 区域 → 框（两臂只在热力图来源与框拟合方式上不同）</p>
-      <table class="h2l-table">
+      <div class="ds-tablewrap">
+      <table class="ds-table">
         <caption>表 2 · 两臂方法细节</caption>
         <tr><th>臂</th><th>方法细节</th></tr>
         <tr><td class="rowh">Grad-CAM++</td><td>ImageNet 预训练 ResNet-101 → Grad-CAM++ 类激活热力图（targets=预测类）→ 阈值化 → cv2.minAreaRect 拟合旋转框 → 输出 label.json（四角点坐标 + 旋转角）</td></tr>
         <tr><td class="rowh">DAAM</td><td>SD v1.4 text2img 从简单 prompt 直接生成场景 → 逐词交叉注意力热力图（DAAM）→ 阈值化 + BFS 岛提取 → 目标类的轴对齐伪框 → 输出 label.json（类名 → <code>[x1,y1,x2,y2]</code> 轴对齐框列表）</td></tr>
         <tr><td class="rowh">两臂对比</td><td>同一张 SD 生成图 → DAAM 自证（prompt 关键词注意力）+ Grad-CAM++ 他证（ResNet 预测类），交叉验证生成质量</td></tr>
       </table>
+      </div>
     </section>
 
     <footer class="ds-footer">
