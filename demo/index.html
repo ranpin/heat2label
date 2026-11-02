@@ -109,8 +109,6 @@
     <!-- ============ 核心方法 ============ -->
     <section class="ds-section">
       <h2 class="ds-h2">核心方法</h2>
-      <p class="sec-note tight">两条臂共享同一条管线，只在「热力图从哪来」和「服务什么域」上不同。</p>
-      <p><b>输入输出</b>：Grad-CAM++ 臂——输入一张已有图像，输出 <code>label.json</code>（类名 → 旋转框四角点 + 旋转角）；DAAM 臂——输入文本 prompt，一趟输出 512×512 生成图 + <code>label.json</code>（类名 → <code>[x1,y1,x2,y2]</code> 轴对齐框）；两臂对比——输入同一张 SD 生成图，输出两臂伪框交叉验证。</p>
       <div class="ds-dgwrap">
         <svg class="ds-dg" viewBox="0 0 980 210" role="img" aria-label="两臂共享管线（动态图）：数据包沿 图像 → 模型前向 → 热力图 → 阈值化 → 区域 → label.json 穿行，经过的节点逐个脉冲亮起；两组标签分别标注两臂在热力图来源与框拟合方式上的差异">
           <defs>
@@ -226,6 +224,8 @@
         </div>
       </div>
       <p class="ds-figcap">图 1 · 两臂共享管线：图像 → 模型前向 → 热力图 → 阈值化 → 区域 → 框（两臂只在热力图来源与框拟合方式上不同）</p>
+      <p class="sec-note tight">两条臂共享同一条管线，只在「热力图从哪来」和「服务什么域」上不同。</p>
+      <p><b>输入输出</b>：Grad-CAM++ 臂——输入一张已有图像，输出 <code>label.json</code>（类名 → 旋转框四角点 + 旋转角）；DAAM 臂——输入文本 prompt，一趟输出 512×512 生成图 + <code>label.json</code>（类名 → <code>[x1,y1,x2,y2]</code> 轴对齐框）；两臂对比——输入同一张 SD 生成图，输出两臂伪框交叉验证。</p>
       <div class="ds-tablewrap">
       <table class="ds-table">
         <caption>表 2 · 两臂方法细节</caption>
