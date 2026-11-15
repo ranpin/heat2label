@@ -258,7 +258,8 @@ function fmtLabel(obj){
   keys.forEach((k,ki)=>{
     const v=obj[k],last=ki===keys.length-1;
     if(Array.isArray(v)){
-      out.push('  "'+k+'": ['+v.map(b=>"["+b.join(",")+"]").join(",")+']'+(last?"":","));
+      // DAAM box：旧格式 [x1,y1,x2,y2]，新格式 {"bbox":[...],"score":s}（2026-11-15 置信度）
+      out.push('  "'+k+'": ['+v.map(b=>Array.isArray(b)?"["+b.join(",")+"]":'{"bbox":['+b.bbox.join(",")+'],"score":'+b.score+'}').join(",")+']'+(last?"":","));
     }else{
       out.push('  "'+k+'": {');
       out.push('    "corners": ['+v.corners.map(p=>"["+p.join(",")+"]").join(",")+'],');

@@ -153,7 +153,7 @@ def text2img(args):
                     heat_s = time.perf_counter() - t
 
                     t = time.perf_counter()
-                    out_img, out_heat, out_bbox = hm.plot_overlay(
+                    out_img, out_heat, out_bbox, out_scores = hm.plot_overlay(
                         out.images[0], src_size=out.images[0].size
                     )
                     sync()
@@ -164,9 +164,9 @@ def text2img(args):
                     )
                     show = deepcopy(out_img)
                     valid = []
-                    for bbox in out_bbox:
+                    for bbox, score in zip(out_bbox, out_scores):
                         bbox = [int(b) for b in bbox]
-                        valid.append(bbox)
+                        valid.append({"bbox": bbox, "score": round(float(score), 3)})
                         cv2.rectangle(show, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 255), 4)
                     cv2.imwrite(os.path.join(save_path, "img.png"), out_img)
                     cv2.imwrite(os.path.join(save_path, "heat.png"), out_heat_vis)
@@ -251,7 +251,7 @@ def img2img(args):
                         generator=gen,
                     )
                     hm = tc.compute_global_heat_map().compute_word_heat_map(args.keyword)
-                    out_img, out_heat, out_bbox = hm.plot_overlay(
+                    out_img, out_heat, out_bbox, out_scores = hm.plot_overlay(
                         out.images[0], src_size=(image_w, image_h)
                     )
 
@@ -262,11 +262,11 @@ def img2img(args):
 
                     show = deepcopy(out_img)
                     valid = []
-                    for bbox in out_bbox:
+                    for bbox, score in zip(out_bbox, out_scores):
                         if bbox[1] >= image_h - 200:  # drop ground-plane FP
                             continue
                         bbox = [int(b) for b in bbox]
-                        valid.append(bbox)
+                        valid.append({"bbox": bbox, "score": round(float(score), 3)})
                         cv2.rectangle(show, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 255), 4)
 
                     cv2.imwrite(os.path.join(save_path, "img.png"), out_img)

@@ -42,7 +42,7 @@ def plot_overlay_heat_map(im, heat_map, src_size, word=None, out_file=None, crop
         if color_normalize:
             heat_map = heat_map.squeeze().cpu().numpy()
             # heat_map = cv2.resize(heat_map, src_size, interpolation=cv2.INTER_CUBIC)  # to expand
-            bbox_list = crop_heat_map_bbox(heat_map)
+            bbox_list, _ = crop_heat_map_bbox(heat_map)
             visualize_tool(im, bbox_list, [word for _ in range(len(bbox_list))], heat_map)
 
 
@@ -68,9 +68,9 @@ def return_overlay_heat_map(im, heat_map, src_size, word=None, out_file=None, cr
         if color_normalize:
             heat_map = heat_map.squeeze().cpu().numpy()
             heat_map = cv2.resize(heat_map, src_size, interpolation=cv2.INTER_CUBIC)  # to expand
-            bbox_list = crop_heat_map_bbox(heat_map)
+            bbox_list, score_list = crop_heat_map_bbox(heat_map)
 
-            return im, heat_map, bbox_list
+            return im, heat_map, bbox_list, score_list
 
 
 def plot_overlay_heat_map_old(im, heat_map, word=None, out_file=None, crop=None, color_normalize=True, ax=None):
@@ -116,14 +116,14 @@ def crop_heat_map_bbox(heat_map, threshold=None, min_area_frac=0.002, **kwargs):
     (instead of a fixed 0.5 that drops weaker objects), 8-connected regions,
     attention-peak splitting of touching objects, a resolution-relative area
     filter (instead of a fixed 1024-px cutoff), attention-mass ranking and NMS.
-    Returns ``[x1, y1, x2, y2]`` boxes (x=col, y=row) sorted by confidence,
-    matching the original return shape so existing callers are unaffected.
+    Returns ``(boxes, scores)``: boxes are ``[x1, y1, x2, y2]`` (x=col, y=row)
+    sorted by confidence; scores are the matching attention-mass confidences in
+    [0, 1] (top box = 1.0).
     """
     from .box_extract import extract_boxes
-    boxes, _scores = extract_boxes(
+    return extract_boxes(
         heat_map, threshold=threshold, min_area_frac=min_area_frac, **kwargs
     )
-    return boxes
 
 
 def visualize_tool(img, bbox_list, label_list, heat_map, save_path=""):
