@@ -62,6 +62,51 @@ def otsu_threshold(values, bins=256):
     return best_thr
 
 
+def _gauss_kernel_1d(sigma):
+    r = max(1, int(round(sigma * 3.0)))
+    x = np.arange(-r, r + 1, dtype=np.float64)
+    k = np.exp(-x * x / (2.0 * sigma * sigma))
+    return k / k.sum()
+
+
+def _smooth(heat, sigma_px):
+    """Gaussian blur (cv2 fast path, pure-numpy separable fallback). sigma_px<=0 = no-op."""
+    if sigma_px <= 0:
+        return heat
+    heat = heat.astype(np.float64)
+    try:
+        import cv2
+        ksize = max(3, int(round(sigma_px * 6.0)) | 1)
+        return cv2.GaussianBlur(heat, (ksize, ksize), float(sigma_px))
+    except Exception:
+        pass
+    k = _gauss_kernel_1d(sigma_px)
+    r = len(k) // 2
+    hp = np.pad(heat, ((0, 0), (r, r)), mode="edge")
+    hor = np.empty_like(heat)
+    for i in range(heat.shape[0]):
+        hor[i, :] = np.convolve(hp[i, :], k, mode="valid")
+    vp = np.pad(hor, ((r, r), (0, 0)), mode="edge")
+    ver = np.empty_like(heat)
+    for j in range(heat.shape[1]):
+        ver[:, j] = np.convolve(vp[:, j], k, mode="valid")
+    return ver
+
+
+def cap_mask_threshold(heat, thr, max_mask_frac):
+    """Raise `thr` so the mask covers at most `max_mask_frac` of the image.
+
+    Diffuse DAAM maps make Otsu pick a low threshold (huge mask -> many noise
+    peaks -> over-segmentation). Capping the mask fraction pushes the threshold
+    up to the (1 - max_mask_frac) quantile, keeping only the strongest attention.
+    """
+    if max_mask_frac is None or max_mask_frac >= 1.0:
+        return thr
+    if float((heat >= thr).mean()) <= max_mask_frac:
+        return thr
+    return max(thr, float(np.quantile(heat, 1.0 - max_mask_frac)))
+
+
 def connected_components(mask):
     """8-connected labeling. Returns (num_components, labels) with 0=background.
 
@@ -176,7 +221,8 @@ def nms(boxes, scores, iou_thr):
 
 def extract_boxes(heat_map, threshold=None, thr_floor=0.15, min_area_frac=0.005,
                   peak_local_radius=3, peak_min_dist_frac=0.15, nms_iou=0.3,
-                  top_k=None):
+                  top_k=None, smooth_sigma_frac=0.0, max_mask_frac=None,
+                  peak_rel_min=None):
     """Extract per-object boxes from a heat map.
 
     Args:
@@ -193,6 +239,14 @@ def extract_boxes(heat_map, threshold=None, thr_floor=0.15, min_area_frac=0.005,
             a smaller value over-segments one object into tens of boxes).
         nms_iou: IoU threshold for dedup; None disables NMS.
         top_k: keep only the k highest-confidence boxes; None keeps all.
+        smooth_sigma_frac: Gaussian-blur the (normalized) heat map with
+            sigma = this fraction of min(H, W) before thresholding/peak detection,
+            to suppress noise peaks on diffuse maps; 0 = no smoothing.
+        max_mask_frac: cap the thresholded mask to at most this fraction of the
+            image (raises the threshold to the matching quantile). Counters Otsu
+            picking a too-low threshold on diffuse maps; None = no cap.
+        peak_rel_min: within a component, drop peaks weaker than this fraction of
+            the component's max (peak prominence filter); None = keep all peaks.
 
     Returns:
         (boxes, scores): boxes are [x1, y1, x2, y2] (x=col, y=row) sorted by
@@ -208,9 +262,12 @@ def extract_boxes(heat_map, threshold=None, thr_floor=0.15, min_area_frac=0.005,
     if hi <= lo:
         return [], []
     heat = (heat - lo) / (hi - lo)
+    if smooth_sigma_frac and smooth_sigma_frac > 0:
+        heat = _smooth(heat, float(smooth_sigma_frac) * min(H, W))
 
     thr = otsu_threshold(heat) if threshold is None else float(threshold)
     thr = max(thr, float(thr_floor))
+    thr = cap_mask_threshold(heat, thr, max_mask_frac)
     mask = heat >= thr
     if not mask.any():
         return [], []
@@ -225,6 +282,9 @@ def extract_boxes(heat_map, threshold=None, thr_floor=0.15, min_area_frac=0.005,
         if int(comp.sum()) < min_area:
             continue
         peak_coords = [tuple(c) for c in np.argwhere(_local_max_mask(heat, comp, peak_local_radius))]
+        if peak_rel_min:
+            cmax = float(heat[comp].max())
+            peak_coords = [c for c in peak_coords if heat[c] >= peak_rel_min * cmax]
         peaks = _merge_close_peaks(heat, peak_coords, peak_min_dist)
         if len(peaks) <= 1:
             ys, xs = np.where(comp)
