@@ -173,6 +173,8 @@ def text2img(args):
                     cv2.imwrite(os.path.join(save_path, "box.png"), show)
                     with open(os.path.join(save_path, "label.json"), "w") as f:
                         json.dump({keyword: valid}, f)
+                    if args.save_heatmap:
+                        np.save(os.path.join(save_path, "heatmap.npy"), out_heat)
             timing = {
                 "gen_s": round(gen_s, 2),
                 "heat_s": round(heat_s, 2),
@@ -274,6 +276,8 @@ def img2img(args):
                     cv2.imwrite(os.path.join(save_path, "box.png"), show)
                     with open(os.path.join(save_path, "label.json"), "w") as f:
                         json.dump({args.keyword: valid}, f)
+                    if args.save_heatmap:
+                        np.save(os.path.join(save_path, "heatmap.npy"), out_heat)
 
 
 def build_parser():
@@ -292,6 +296,8 @@ def build_parser():
     a.add_argument("--side", type=int, default=768, help="Square resize side fed to SD.")
     a.add_argument("--model-id", default="CompVis/stable-diffusion-v1-4")
     a.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    a.add_argument("--save-heatmap", action="store_true",
+                   help="Also save heatmap.npy (the resized word heat map box_extract consumes) for offline param tuning.")
     a.set_defaults(func=img2img)
 
     # ---- text2img labeling (generate scene + pseudo bbox) ----
@@ -305,6 +311,8 @@ def build_parser():
     b.add_argument("--side", type=int, default=512, help="Square generation side (512 fits 8GB).")
     b.add_argument("--model-id", default="CompVis/stable-diffusion-v1-4")
     b.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    b.add_argument("--save-heatmap", action="store_true",
+                   help="Also save heatmap.npy (the resized word heat map box_extract consumes) for offline param tuning.")
     b.set_defaults(func=text2img)
 
     return p
