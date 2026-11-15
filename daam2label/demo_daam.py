@@ -83,6 +83,19 @@ def _load_image_list(list_file):
         return [ln.strip() for ln in f if ln.strip() and not ln.startswith("#")]
 
 
+def _box_kwargs(args):
+    """Optional box_extract overrides for plot_overlay; empty = extract_boxes defaults
+    (Otsu adaptive threshold). Real DAAM heat maps are diffuse and over-segment under
+    the defaults — tune on saved heatmaps via tools/tune_box_extract.py, then pass the
+    chosen values here (see demo page compare assets)."""
+    kw = {}
+    for name in ("threshold", "min_area_frac", "peak_min_dist_frac"):
+        v = getattr(args, name, None)
+        if v is not None:
+            kw[name] = v
+    return kw
+
+
 def text2img(args):
     """Text2img labeling: SD generates a scene straight from the prompt (no init
     image), then the per-word DAAM heat map is thresholded via BFS into pseudo
@@ -154,7 +167,7 @@ def text2img(args):
 
                     t = time.perf_counter()
                     out_img, out_heat, out_bbox, out_scores = hm.plot_overlay(
-                        out.images[0], src_size=out.images[0].size
+                        out.images[0], src_size=out.images[0].size, box_kwargs=_box_kwargs(args)
                     )
                     sync()
                     box_s = time.perf_counter() - t
@@ -254,7 +267,7 @@ def img2img(args):
                     )
                     hm = tc.compute_global_heat_map().compute_word_heat_map(args.keyword)
                     out_img, out_heat, out_bbox, out_scores = hm.plot_overlay(
-                        out.images[0], src_size=(image_w, image_h)
+                        out.images[0], src_size=(image_w, image_h), box_kwargs=_box_kwargs(args)
                     )
 
                     out_img = cv2.addWeighted(out_img, 1, image_mask_keep, 1, 0)
@@ -296,6 +309,12 @@ def build_parser():
     a.add_argument("--side", type=int, default=768, help="Square resize side fed to SD.")
     a.add_argument("--model-id", default="CompVis/stable-diffusion-v1-4")
     a.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    a.add_argument("--threshold", type=float, default=None,
+                   help="box_extract mask threshold (overrides Otsu). None = Otsu adaptive (production default).")
+    a.add_argument("--min-area-frac", type=float, default=None,
+                   help="box_extract min box area as fraction of image area. None = default 0.002.")
+    a.add_argument("--peak-min-dist-frac", type=float, default=None,
+                   help="box_extract min attention-peak separation as fraction of image. None = default 0.06.")
     a.add_argument("--save-heatmap", action="store_true",
                    help="Also save heatmap.npy (the resized word heat map box_extract consumes) for offline param tuning.")
     a.set_defaults(func=img2img)
@@ -311,6 +330,12 @@ def build_parser():
     b.add_argument("--side", type=int, default=512, help="Square generation side (512 fits 8GB).")
     b.add_argument("--model-id", default="CompVis/stable-diffusion-v1-4")
     b.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    b.add_argument("--threshold", type=float, default=None,
+                   help="box_extract mask threshold (overrides Otsu). None = Otsu adaptive (production default).")
+    b.add_argument("--min-area-frac", type=float, default=None,
+                   help="box_extract min box area as fraction of image area. None = default 0.002.")
+    b.add_argument("--peak-min-dist-frac", type=float, default=None,
+                   help="box_extract min attention-peak separation as fraction of image. None = default 0.06.")
     b.add_argument("--save-heatmap", action="store_true",
                    help="Also save heatmap.npy (the resized word heat map box_extract consumes) for offline param tuning.")
     b.set_defaults(func=text2img)

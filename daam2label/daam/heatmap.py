@@ -46,7 +46,7 @@ def plot_overlay_heat_map(im, heat_map, src_size, word=None, out_file=None, crop
             visualize_tool(im, bbox_list, [word for _ in range(len(bbox_list))], heat_map)
 
 
-def return_overlay_heat_map(im, heat_map, src_size, word=None, out_file=None, crop=None, color_normalize=True, ax=None):
+def return_overlay_heat_map(im, heat_map, src_size, word=None, out_file=None, crop=None, color_normalize=True, ax=None, box_kwargs=None):
     
     # type: (PIL.Image.Image | np.ndarray, torch.Tensor, str, Path, int, bool, plt.Axes) -> None
     if ax is None:
@@ -68,7 +68,7 @@ def return_overlay_heat_map(im, heat_map, src_size, word=None, out_file=None, cr
         if color_normalize:
             heat_map = heat_map.squeeze().cpu().numpy()
             heat_map = cv2.resize(heat_map, src_size, interpolation=cv2.INTER_CUBIC)  # to expand
-            bbox_list, score_list = crop_heat_map_bbox(heat_map)
+            bbox_list, score_list = crop_heat_map_bbox(heat_map, **(box_kwargs or {}))
 
             return im, heat_map, bbox_list, score_list
 
@@ -193,7 +193,7 @@ class WordHeatMap:
     def value(self):
         return self.heatmap
 
-    def plot_overlay(self, image, src_size, out_file=None, color_normalize=True, ax=None, **expand_kwargs):
+    def plot_overlay(self, image, src_size, out_file=None, color_normalize=True, ax=None, box_kwargs=None, **expand_kwargs):
         # type: (PIL.Image.Image | np.ndarray, Path, bool, plt.Axes, Dict[str, Any]) -> None
         # plot_overlay_heat_map(
         #     image,
@@ -212,7 +212,8 @@ class WordHeatMap:
             word=self.word,
             out_file=out_file,
             color_normalize=color_normalize,
-            ax=ax
+            ax=ax,
+            box_kwargs=box_kwargs
         )
 
     def expand_as(self, image, absolute=False, threshold=None, plot=False, **plot_kwargs):
