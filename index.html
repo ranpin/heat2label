@@ -61,7 +61,22 @@
   .h2l-cmp-q.q2 .tag{background:var(--ds-accent-soft);color:var(--ds-accent-strong)}
   .h2l-cmp-q .txt{flex:1;min-width:0;text-align:justify}
   .h2l-cmp-q b{font-weight:700}
+  /* 两臂对比·所有 case 纵向平铺，每 case 左侧标 case 名（不再用 pill 切换） */
+  .h2l-cmpblock{display:flex;gap:14px;align-items:flex-start}
+  .h2l-cmpblock+.h2l-cmpblock{margin-top:26px;padding-top:22px;border-top:1px dashed var(--ds-border)}
+  .h2l-cmplabel{flex:0 0 78px;align-self:flex-start;font-size:14px;font-weight:700;line-height:1.3;
+    color:var(--ds-accent-strong);background:var(--ds-accent-soft);border:1px solid var(--ds-accent-ring);
+    border-radius:8px;padding:9px 6px;text-align:center;word-break:break-word}
+  .h2l-cmpbody{flex:1;min-width:0}
+  .h2l-cmpblock .h2l-stage{width:140px}
+  .h2l-cmpblock .h2l-stage img{width:140px;height:92px}
+  .h2l-cmpblock .h2l-stagegroup .h2l-json{max-width:300px}
+  .h2l-cmpblock .h2l-cmp{max-width:none;margin-top:14px}
   @media(max-width:680px){
+    .h2l-cmpblock{flex-direction:column;gap:8px}
+    .h2l-cmplabel{flex:none;align-self:flex-start}
+    .h2l-cmpblock .h2l-stage{width:auto}
+    .h2l-cmpblock .h2l-stage img{width:min(40vw,160px);height:auto;aspect-ratio:170/111}
     .h2l-cmp-q{flex-direction:column;gap:6px}
     .h2l-stage{width:auto}
     .h2l-stage img{width:min(86vw,300px);height:auto;aspect-ratio:170/111}
@@ -308,57 +323,67 @@ function render(){
   const C=G.cats.find(c=>c.id===S.c)||G.cats[0];S.c=C.id;
   pills($("groups"),D.groups,S.g,"",id=>{S.g=id;S.c=null;render();});
   pills($("cats"),G.cats,S.c,"sm",id=>{S.c=id;render();});
+  // 两臂对比不用 pill 切换 case——所有 case 纵向平铺，隐藏划分/类别 pill
+  $("groups").style.display=$("cats").style.display=(arm==="compare")?"none":"";
   // 示例：当前类别的全部示例纵向平铺（不做切换），每例带口径行/管线/label.json
   // （逐例「端到端」汇总注记 2026-10-28 应用户要求删除；图题分阶段计时保留——用户自行加总）
   const exs=$("examples");exs.innerHTML="";
   if(arm==="compare"){
-    // 两臂对比：同一张生成图过两条管线（DAAM 自证 / Grad-CAM 他证）
+    // 两臂对比：所有 case 纵向平铺，每 case 左侧标 case 名（不再用 pill 切换）
     const rows=[
       {side:"daam",head:"DAAM 臂 · prompt 驱动（自证）",stages:[
         {key:"img",cap:"SD 生成场景"},{key:"daam_heat",cap:"DAAM 热力图（关键词）"},{key:"daam_box",cap:"轴对齐伪框"}]},
       {side:"gradcam",head:"Grad-CAM++ 臂 · 预测驱动（他证）",stages:[
         {key:"gc_input",cap:"同一图 · 缩放 224×224"},{key:"gc_heat",cap:"Grad-CAM++ 热力图（预测类）"},{key:"gc_box",cap:"旋转框"}]}
     ];
-    for(const r of rows){
-      const D2=C[r.side];
-      const blk=document.createElement("div");blk.className="h2l-exblock";
-      const hd=document.createElement("p");hd.className="h2l-rowhead";hd.textContent=r.head;blk.appendChild(hd);
-      const pr=document.createElement("p");pr.className="h2l-prompt";
-      pr.textContent=r.side==="daam"
-        ?`prompt: "${D2.prompt}"   ·   keyword: "${D2.keyword}"   ·   seed: ${D2.seed}`
-        :`ResNet-101 预测类别（ImageNet-1K 词表）: "${D2.pred}"`;
-      blk.appendChild(pr);
-      const pl=document.createElement("div");pl.className="h2l-pipeline";
-      r.stages.forEach((st,i)=>{
-        if(i>0){const ar=document.createElement("div");ar.className="h2l-arrow";ar.textContent="→";pl.appendChild(ar);}
-        const d=document.createElement("div");d.className="h2l-stage";
-        const im=document.createElement("img");im.src=`assets/compare/${C.id}/${st.key}.png`;im.alt=st.cap;
-        const c=document.createElement("div");c.className="cap";c.textContent=st.cap;
-        d.appendChild(im);d.appendChild(c);
-        if(i===r.stages.length-1&&D2.label){
-          const grp=document.createElement("div");grp.className="h2l-stagegroup";
-          grp.appendChild(d);
-          const lj=document.createElement("pre");lj.className="h2l-json";
-          lj.innerHTML='<span class="k">label.json</span>\n'+fmtLabel(D2.label);
-          grp.appendChild(lj);
-          pl.appendChild(grp);
-        }else{pl.appendChild(d);}
-      });
-      blk.appendChild(pl);
-      exs.appendChild(blk);
+    for(const C of G.cats){
+      const wrap=document.createElement("div");wrap.className="h2l-cmpblock";
+      const lab=document.createElement("div");lab.className="h2l-cmplabel";lab.textContent=C.name;
+      wrap.appendChild(lab);
+      const body=document.createElement("div");body.className="h2l-cmpbody";
+      for(const r of rows){
+        const D2=C[r.side];
+        const blk=document.createElement("div");blk.className="h2l-exblock";
+        const hd=document.createElement("p");hd.className="h2l-rowhead";hd.textContent=r.head;blk.appendChild(hd);
+        const pr=document.createElement("p");pr.className="h2l-prompt";
+        pr.textContent=r.side==="daam"
+          ?`prompt: "${D2.prompt}"   ·   keyword: "${D2.keyword}"   ·   seed: ${D2.seed}`
+          :`ResNet-101 预测类别（ImageNet-1K 词表）: "${D2.pred}"`;
+        blk.appendChild(pr);
+        const pl=document.createElement("div");pl.className="h2l-pipeline";
+        r.stages.forEach((st,i)=>{
+          if(i>0){const ar=document.createElement("div");ar.className="h2l-arrow";ar.textContent="→";pl.appendChild(ar);}
+          const d=document.createElement("div");d.className="h2l-stage";
+          const im=document.createElement("img");im.src=`assets/compare/${C.id}/${st.key}.png`;im.alt=st.cap;
+          const c=document.createElement("div");c.className="cap";c.textContent=st.cap;
+          d.appendChild(im);d.appendChild(c);
+          if(i===r.stages.length-1&&D2.label){
+            const grp=document.createElement("div");grp.className="h2l-stagegroup";
+            grp.appendChild(d);
+            const lj=document.createElement("pre");lj.className="h2l-json";
+            lj.innerHTML='<span class="k">label.json</span>\n'+fmtLabel(D2.label);
+            grp.appendChild(lj);
+            pl.appendChild(grp);
+          }else{pl.appendChild(d);}
+        });
+        blk.appendChild(pl);
+        body.appendChild(blk);
+      }
+      // 对比要点：从数据自动生成两个问题的对照（① 闭集 vs 开集；② 单框 vs 多框）
+      const cmp=document.createElement("div");cmp.className="h2l-cmp";
+      const q1=document.createElement("div");q1.className="h2l-cmp-q q1";
+      q1.innerHTML='<span class="tag">① 闭集 vs 开集</span><span class="txt">Grad-CAM++ 臂用 ResNet-101 在 ImageNet-1K <b>闭集</b>上预测，本图判为 <b>"'+C.gradcam.pred+'"</b>，与 prompt 关键词 <b>"'+C.daam.keyword+'"</b> 并不完全一致——闭集只能在词表内挑：有近似类时落到具体子类，无对应类时直接误判；DAAM 臂<b>免分类器</b>，keyword <b>"'+C.daam.keyword+'"</b> 直接取自 prompt（开集），生成与标注同源。</span>';
+      cmp.appendChild(q1);
+      const nBox=(C.daam.label[C.daam.keyword]||[]).length;
+      if(nBox>1){
+        const q2=document.createElement("div");q2.className="h2l-cmp-q q2";
+        q2.innerHTML='<span class="tag">② 单框 vs 多框</span><span class="txt">DAAM 臂 box_extract（Otsu 自适应阈值 + 注意力峰拆分 + NMS）给出 <b>'+nBox+'</b> 个轴对齐框（带置信度，应对多目标）；Grad-CAM++ 臂 minAreaRect 只取第一个轮廓 → <b>1</b> 个旋转框（单目标）。</span>';
+        cmp.appendChild(q2);
+      }
+      body.appendChild(cmp);
+      wrap.appendChild(body);
+      exs.appendChild(wrap);
     }
-    // 对比要点：从数据自动生成两个问题的对照（① 闭集 vs 开集；② 单框 vs 多框）
-    const cmp=document.createElement("div");cmp.className="h2l-cmp";
-    const q1=document.createElement("div");q1.className="h2l-cmp-q q1";
-    q1.innerHTML='<span class="tag">① 闭集 vs 开集</span><span class="txt">Grad-CAM++ 臂用 ResNet-101 在 ImageNet-1K <b>闭集</b>上预测，本图判为 <b>"'+C.gradcam.pred+'"</b>，与 prompt 关键词 <b>"'+C.daam.keyword+'"</b> 并不完全一致——闭集只能在词表内挑：有近似类时落到具体子类，无对应类时直接误判；DAAM 臂<b>免分类器</b>，keyword <b>"'+C.daam.keyword+'"</b> 直接取自 prompt（开集），生成与标注同源。</span>';
-    cmp.appendChild(q1);
-    const nBox=(C.daam.label[C.daam.keyword]||[]).length;
-    if(nBox>1){
-      const q2=document.createElement("div");q2.className="h2l-cmp-q q2";
-      q2.innerHTML='<span class="tag">② 单框 vs 多框</span><span class="txt">DAAM 臂 box_extract（Otsu 自适应阈值 + 注意力峰拆分 + NMS）给出 <b>'+nBox+'</b> 个轴对齐框（带置信度，应对多目标）；Grad-CAM++ 臂 minAreaRect 只取第一个轮廓 → <b>1</b> 个旋转框（单目标）。</span>';
-      cmp.appendChild(q2);
-    }
-    exs.appendChild(cmp);
   }else{
   for(const E of C.ex){
     const blk=document.createElement("div");blk.className="h2l-exblock";
