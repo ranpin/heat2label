@@ -174,8 +174,8 @@ def nms(boxes, scores, iou_thr):
     return keep
 
 
-def extract_boxes(heat_map, threshold=None, thr_floor=0.15, min_area_frac=0.002,
-                  peak_local_radius=3, peak_min_dist_frac=0.06, nms_iou=0.3,
+def extract_boxes(heat_map, threshold=None, thr_floor=0.15, min_area_frac=0.005,
+                  peak_local_radius=3, peak_min_dist_frac=0.15, nms_iou=0.3,
                   top_k=None):
     """Extract per-object boxes from a heat map.
 
@@ -184,10 +184,13 @@ def extract_boxes(heat_map, threshold=None, thr_floor=0.15, min_area_frac=0.002,
         threshold: absolute threshold in [0,1]; None = adaptive (Otsu).
         thr_floor: lower bound applied to the adaptive threshold so a diffuse
             map does not threshold near zero and turn background into objects.
-        min_area_frac: drop boxes smaller than this fraction of image area.
+        min_area_frac: drop boxes smaller than this fraction of image area
+            (default 0.005, tuned on real diffuse DAAM heat maps).
         peak_local_radius: window radius for local-maximum (peak) detection.
         peak_min_dist_frac: two peaks must be at least this fraction of
-            min(H, W) apart to count as separate objects (controls splitting).
+            min(H, W) apart to count as separate objects (controls splitting;
+            default 0.15 — real diffuse DAAM heat maps carry many noise peaks,
+            a smaller value over-segments one object into tens of boxes).
         nms_iou: IoU threshold for dedup; None disables NMS.
         top_k: keep only the k highest-confidence boxes; None keeps all.
 
