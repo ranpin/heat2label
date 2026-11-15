@@ -108,76 +108,22 @@ def plot_overlay_heat_map_old(im, heat_map, word=None, out_file=None, crop=None,
         if out_file is not None:
             plt.savefig(out_file)
 
-def crop_heat_map_bbox(heat_map, threshold=0.5, min_size=1024):
+
+def crop_heat_map_bbox(heat_map, threshold=None, min_area_frac=0.002, **kwargs):
+    """Multi-object pseudo-box extraction from a normalized heat map.
+
+    Delegates to :func:`daam.box_extract.extract_boxes`: adaptive Otsu threshold
+    (instead of a fixed 0.5 that drops weaker objects), 8-connected regions,
+    attention-peak splitting of touching objects, a resolution-relative area
+    filter (instead of a fixed 1024-px cutoff), attention-mass ranking and NMS.
+    Returns ``[x1, y1, x2, y2]`` boxes (x=col, y=row) sorted by confidence,
+    matching the original return shape so existing callers are unaffected.
     """
-    heat_map -> ndarray: source heatmap
-    threshold -> float: 0.3 is a good threshold, adaptable
-    min_size -> int: minimized box size
-
-    """
-    from collections import deque
-    from copy import deepcopy
-
-    def bfs_search(i, j, thr, map):
-
-        island = []
-        queue = deque([(i, j)])
-        while(queue):
-
-            cur_i, cur_j = queue.popleft()
-            if cur_i < 0 or cur_i >= map.shape[0] or \
-                cur_j < 0 or cur_j >= map.shape[1] or \
-                map[cur_i, cur_j] < thr:
-                
-                continue
-
-            map[cur_i, cur_j] = 0.0
-            island.append([cur_i, cur_j])
-
-            queue.append((cur_i, cur_j + 1))
-            queue.append((cur_i, cur_j - 1))
-            queue.append((cur_i + 1, cur_j))
-            queue.append((cur_i - 1, cur_j))
-
-        return island
-
-    heat_map = deepcopy(heat_map)
-
-    max_val = heat_map.max()
-    min_val = heat_map.min()
-
-    count = 0
-    island_list = []
-    for i in range(heat_map.shape[0]):
-        for j in range(heat_map.shape[1]):
-            if heat_map[i, j] >= threshold:
-                island = bfs_search(i, j, threshold, heat_map)
-                island_list.append(np.array(island))
-                count += 1
-
-    bbox_list = []
-    max_area = 0
-    max_bbox = []
-    for island in island_list:
-        x1 = island[:,1].min()
-        y1 = island[:,0].min()
-        x2 = island[:,1].max()
-        y2 = island[:,0].max()
-
-        if abs(x2 - x1) * abs(y2 - y1) > max_area:
-            max_area = abs(x2 - x1) * abs(y2 - y1)
-            max_bbox = [[x1, y1, x2, y2]]
-
-        if abs(x2 - x1) * abs(y2 - y1) <= min_size:
-            continue
-
-        bbox_list.append([
-            x1, y1, x2, y2
-        ]) # x1, y1, x2, y2
-
-    
-    return bbox_list
-    # return max_bbox
+    from .box_extract import extract_boxes
+    boxes, _scores = extract_boxes(
+        heat_map, threshold=threshold, min_area_frac=min_area_frac, **kwargs
+    )
+    return boxes
 
 
 def visualize_tool(img, bbox_list, label_list, heat_map, save_path=""):
