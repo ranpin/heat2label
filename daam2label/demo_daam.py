@@ -211,7 +211,7 @@ def text2img(args):
 
 def img2img(args):
     """Main labeling loop. See module docstring."""
-    # fp16 weights + attention slicing: fit SD v1.4 on an 8 GB GPU (see README).
+    # fp16 weights + attention slicing: fit SD v1.5 on an 8 GB GPU (see README).
     load_dtype = torch.float16 if args.device != "cpu" else torch.float32
     pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
         args.model_id, torch_dtype=load_dtype
@@ -307,7 +307,7 @@ def build_parser():
     a.add_argument("--num-outputs", type=int, default=4, help="Seeds per image.")
     a.add_argument("--strength", type=float, default=0.45, help="img2img denoising strength.")
     a.add_argument("--side", type=int, default=768, help="Square resize side fed to SD.")
-    a.add_argument("--model-id", default="CompVis/stable-diffusion-v1-4")
+    a.add_argument("--model-id", default="stable-diffusion-v1-5/stable-diffusion-v1-5")
     a.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     a.add_argument("--threshold", type=float, default=None,
                    help="box_extract mask threshold (overrides Otsu). None = Otsu adaptive (production default).")
@@ -328,7 +328,7 @@ def build_parser():
     b.add_argument("--num-outputs", type=int, default=1, help="If >1, sample this many random seeds.")
     b.add_argument("--save-dir", default="output/text2img", help="Root directory for outputs.")
     b.add_argument("--side", type=int, default=512, help="Square generation side (512 fits 8GB).")
-    b.add_argument("--model-id", default="CompVis/stable-diffusion-v1-4")
+    b.add_argument("--model-id", default="stable-diffusion-v1-5/stable-diffusion-v1-5")
     b.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     b.add_argument("--threshold", type=float, default=None,
                    help="box_extract mask threshold (overrides Otsu). None = Otsu adaptive (production default).")
