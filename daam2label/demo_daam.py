@@ -152,10 +152,12 @@ def text2img(args):
                     t = time.perf_counter()
                     out = pipe(
                         prompt,
+                        negative_prompt=getattr(args, "negative_prompt", None),
                         num_inference_steps=30,
                         generator=gen,
                         height=args.side,
                         width=args.side,
+                        guidance_scale=getattr(args, "guidance", 7.5),
                     )
                     sync()
                     gen_s = time.perf_counter() - t
@@ -307,6 +309,9 @@ def build_parser():
     a.add_argument("--num-outputs", type=int, default=4, help="Seeds per image.")
     a.add_argument("--strength", type=float, default=0.45, help="img2img denoising strength.")
     a.add_argument("--side", type=int, default=768, help="Square resize side fed to SD.")
+    a.add_argument("--negative-prompt",
+                   default="painting, cartoon, illustration, artistic, drawing, anime, sketch, 3d render, cgi, stylized",
+                   help="Negative prompt; default excludes art styles to push photorealism.")
     a.add_argument("--model-id", default="stable-diffusion-v1-5/stable-diffusion-v1-5")
     a.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     a.add_argument("--threshold", type=float, default=None,
@@ -328,6 +333,11 @@ def build_parser():
     b.add_argument("--num-outputs", type=int, default=1, help="If >1, sample this many random seeds.")
     b.add_argument("--save-dir", default="output/text2img", help="Root directory for outputs.")
     b.add_argument("--side", type=int, default=512, help="Square generation side (512 fits 8GB).")
+    b.add_argument("--negative-prompt",
+                   default="painting, cartoon, illustration, artistic, drawing, anime, sketch, 3d render, cgi, stylized",
+                   help="Negative prompt; default excludes art styles to push photorealism.")
+    b.add_argument("--guidance", type=float, default=7.5,
+                   help="Classifier-free guidance scale; higher = stronger prompt/count adherence.")
     b.add_argument("--model-id", default="stable-diffusion-v1-5/stable-diffusion-v1-5")
     b.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     b.add_argument("--threshold", type=float, default=None,

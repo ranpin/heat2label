@@ -36,6 +36,9 @@ def main():
     p.add_argument("--side", type=int, default=512)
     p.add_argument("--steps", type=int, default=25)
     p.add_argument("--guidance", type=float, default=7.5)
+    p.add_argument("--negative-prompt",
+                   default="painting, cartoon, illustration, artistic, drawing, anime, sketch, 3d render, cgi, stylized",
+                   help="Negative prompt; default excludes art styles to push photorealism.")
     p.add_argument("--model-id", default="stabilityai/stable-diffusion-xl-base-1.0")
     p.add_argument("--threshold", type=float, default=None)
     p.add_argument("--min-area-frac", type=float, default=None)
@@ -63,7 +66,8 @@ def main():
         gen = torch.Generator(device="cpu").manual_seed(seed)
         t = time.perf_counter()
         with trace_xl(pipe) as tc:
-            out = pipe(args.prompt, num_inference_steps=args.steps, generator=gen,
+            out = pipe(args.prompt, negative_prompt=args.negative_prompt,
+                       num_inference_steps=args.steps, generator=gen,
                        height=args.side, width=args.side, guidance_scale=args.guidance)
             hm = tc.compute_global_heat_map().compute_word_heat_map(args.keyword)
             out_img, out_heat, out_bbox, out_scores = hm.plot_overlay(
